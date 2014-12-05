@@ -35,6 +35,10 @@ typedef struct nodeDescriptor
 class Sensornet  
 {
  public:
+unsigned long messageSequence;
+nodeDescriptor thisNodeDesc;
+
+
 	Sensornet(void);
 
 	void queueReading( sensorType sensor, float value );

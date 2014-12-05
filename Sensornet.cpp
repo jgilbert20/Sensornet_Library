@@ -32,13 +32,11 @@ nodeDescriptor getNodeDescriptor(nodeID id)
   {
     case API_TEST:
       n.name = "API-Test";
-      n.address = 101;
     break;
 
     default:
           n.name = "UNKNOWN";
-        n.address = -1;
-
+          break;
     ;
 
 
@@ -49,16 +47,18 @@ nodeDescriptor getNodeDescriptor(nodeID id)
 
 void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequency, char *key )
 {
-  nodeDescriptor nd = getNodeDescriptor( node );
+   thisNodeDesc = getNodeDescriptor( node );
 
-  _node = nd.address;
+  _node = (int)node;
   _network = network;
   _gateway = gateway;
   _frequency = frequency;
 
   radio.initialize(_frequency,_node,_network);
   radio.encrypt( key );
-  
+ 
+  messageSequence = 0;
+
 }
 
 
@@ -80,7 +80,7 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
     char messageChar[MAX_MESSAGE_LEN+1];
     { 
       String message = F("R");
-      // message += messageSequence;
+      message += messageSequence;
       message += F(",");
       message += node.name;
       message += F(",");
@@ -98,6 +98,12 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 
     Serial.print( ">>>>" );
     Serial.println(messageChar);
+
+    unsigned int l  = strlen(messageChar);
+
+    radio.sendWithRetry( _gateway, messageChar,  l, 3, 30  );  
+
+    messageSequence++;
 
 }
 
