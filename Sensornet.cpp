@@ -3,22 +3,55 @@
 
 #include <RFM69.h> 
 
-
-
-
-
-
-
 Sensornet::Sensornet() {
   ;
 }
 
 
+// const char* SENSORCONFIG[][3] =
+// {
+//   { HTU21D_RH, "HTU21D-RH", "%RH" },
+//   { HTU21D_C, "HTU21D-C", "C" },
+// };
 
 
-void Sensornet::configureRadio( int node, int network, int gateway, int frequency, char *key )
+
+ 
+//   ;
+// }
+
+
+
+
+nodeDescriptor getNodeDescriptor(nodeID id)
 {
-  _node = node;
+
+  nodeDescriptor n;
+
+  switch( id )
+  {
+    case API_TEST:
+      n.name = "API-Test";
+      n.address = 101;
+    break;
+
+    default:
+          n.name = "UNKNOWN";
+        n.address = -1;
+
+    ;
+
+
+  }
+  return n;
+}
+
+
+void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequency, char *key )
+{
+  nodeDescriptor nd = getNodeDescriptor( node );
+
+  _node = nd.address;
   _network = network;
   _gateway = gateway;
   _frequency = frequency;
@@ -32,8 +65,41 @@ void Sensornet::configureRadio( int node, int network, int gateway, int frequenc
 
 
 
+void Sensornet::sendReading( String sensor, float reading, String units )
+{
+    sendStructured( sensor, reading, units, F("") );
+}
 
 
+void Sensornet::sendStructured( String sensor, float reading, String units, String memo )
+{
+    nodeDescriptor node = getNodeDescriptor( (nodeID) _node );
+
+
+    long unsigned int now = millis();
+    char messageChar[MAX_MESSAGE_LEN+1];
+    { 
+      String message = F("R");
+      // message += messageSequence;
+      message += F(",");
+      message += node.name;
+      message += F(",");
+      message += now;
+      message += F(",");
+      message += sensor;
+      message += F(",");
+      message += reading;
+      message += ",";
+      message += units;
+      message += ",";
+      message += memo;
+      message.toCharArray( messageChar, MAX_MESSAGE_LEN );
+  } 
+
+    Serial.print( ">>>>" );
+    Serial.println(messageChar);
+
+}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
