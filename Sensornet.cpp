@@ -34,6 +34,10 @@ nodeDescriptor getNodeDescriptor(nodeID id)
       n.name = "API-Test";
     break;
 
+    case DUST_SENSOR:
+      n.name = "Dust-Sensor";
+    break;
+
     default:
           n.name = "UNKNOWN";
           break;
