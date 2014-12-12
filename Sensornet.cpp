@@ -38,6 +38,15 @@ nodeDescriptor getNodeDescriptor(nodeID id)
       n.name = "Dust-Sensor";
     break;
 
+
+  case XMAS_SENSOR:
+      n.name = "Xmas-Sensor";
+    break;
+
+  case DISPLAY_TEST:
+      n.name = "Display-Test";
+    break;
+
     default:
           n.name = "UNKNOWN";
           break;

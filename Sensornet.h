@@ -13,8 +13,10 @@
 
 typedef enum nodeID
 { 
-	API_TEST = 101,
-	DUST_SENSOR = 102
+	API_TEST    = 101,
+	DUST_SENSOR = 102,
+	XMAS_SENSOR = 103,
+	DISPLAY_TEST = 104
 } nodeID;
 
 
@@ -23,6 +25,9 @@ typedef enum
 	HTU21D_RH,
 	HTU21D_C
 } sensorType;
+
+#define SENSOR_TEST_A 	1
+#define SENSOR_TEST_B 	2
 
 
 typedef struct nodeDescriptor
