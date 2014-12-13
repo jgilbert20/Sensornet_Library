@@ -109,7 +109,7 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
       message.toCharArray( messageChar, MAX_MESSAGE_LEN );
   } 
 
-    Serial.print( ">>>>" );
+    Serial.print( F(">>>>") );
     Serial.println(messageChar);
 
     unsigned int l  = strlen(messageChar);
