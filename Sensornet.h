@@ -19,15 +19,25 @@ typedef enum nodeID
 	DISPLAY_TEST = 104
 } nodeID;
 
+#define SN_CODEBOOK_MAX_SIZE 13
 
-typedef enum 
+typedef struct compactedMessage
+{
+  char type;
+  unsigned short sequence;
+  unsigned long timestamp;
+  byte codebookID;
+  float reading[SN_CODEBOOK_MAX_SIZE];
+
+} compactedMessage;
+
+typedef enum sensorType
 { 
-	HTU21D_RH,
-	HTU21D_C
+	SENSOR_TEST_A    = 0,
+	SENSOR_TEST_B 	= 1,
+	HTU21D_RH = 2,
+	HTU21D_C = 3
 } sensorType;
-
-#define SENSOR_TEST_A 	1
-#define SENSOR_TEST_B 	2
 
 
 typedef struct nodeDescriptor
@@ -37,15 +47,28 @@ typedef struct nodeDescriptor
 };
 
 
+typedef struct
+{
+  uint8_t sensor;
+  float reading;
+  int millisdiff;
+}
+sensorReading;
+
+
 class Sensornet  
 {
  public:
-unsigned long messageSequence;
-nodeDescriptor thisNodeDesc;
+	unsigned long messageSequence;
+	nodeDescriptor thisNodeDesc;
 
 
 	Sensornet(void);
 
+	void newQuanta();
+
+	void flushQueue(); 
+	void setCodebook( int codebookID );
 	void queueReading( sensorType sensor, float value );
     void sendStructured( String sensor, float reading, String units, String memo );
  	void sendReading( String sensor, float reading, String units );
@@ -65,4 +88,4 @@ uint8_t  _frequency ;
  };
  
 
- #endif
+#endif

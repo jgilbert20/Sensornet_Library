@@ -75,8 +75,57 @@ void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequ
 }
 
 
+unsigned long quantaStartTime;
+int currentCodebook;
+compactedMessage compactedMessageBuffer;
 
 
+void Sensornet::setCodebook( int codebook )
+{
+  currentCodebook = codebook;
+
+}
+
+void Sensornet::newQuanta()
+{
+  quantaStartTime = millis();
+  for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
+    compactedMessageBuffer.reading[i] = 0.0;
+
+  compactedMessageBuffer.type = 'C';
+  compactedMessageBuffer.sequence = messageSequence;
+
+}
+
+
+sensorType coreCodebook[14] = { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C };
+
+int findIndexForSensor( sensorType *codebook, sensorType query )
+{
+  for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
+    if( query == codebook[i] )
+        return i; 
+
+  return -1;
+}
+
+void Sensornet::queueReading( sensorType sensor, float value )
+{
+  // Look up the index in the current codebook
+  int index = findIndexForSensor( coreCodebook, sensor );
+  compactedMessageBuffer.reading[index] = value;
+}
+
+
+
+// void queueReading
+
+void Sensornet::flushQueue()
+{
+    radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 30  );  
+
+    messageSequence++;  
+}
 
 void Sensornet::sendReading( String sensor, float reading, String units )
 {
