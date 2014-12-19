@@ -13,6 +13,7 @@
 
 typedef enum nodeID
 { 
+	SN_NODE_PROTO2 = 22,
 	API_TEST    = 101,
 	DUST_SENSOR = 102,
 	XMAS_SENSOR = 103,
@@ -92,6 +93,8 @@ class Sensornet
 	void markRadioPoweredUp();
 	void markRadioPoweredDown();
 	void printTimeStats();
+	bool sendWithRetry(byte toAddress, const void* buffer, byte bufferSize, byte retries=2, byte retryWaitTime=40);
+
 
 	RFM69 radio;
  private:

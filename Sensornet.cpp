@@ -42,6 +42,11 @@ unsigned long timeSpentTX = 0;
 unsigned long timeSpentRadioOn = 0;
 unsigned long timeSpentLoop = 0;
 unsigned long timeSpentSleeping = 0;
+unsigned long totalMessagesSent = 0;
+unsigned long totalCompactedMessagesSent = 0;
+unsigned long totalLongFormMessagesSent = 0;
+
+unsigned long totalMessagesAcknowledged = 0;
 
 unsigned long currentLoopStarttime = 0;
 unsigned long currentTimeLastAwoken = 0;
@@ -58,6 +63,10 @@ void Sensornet::printTimeStats()
   Serial.print( F( "Loop Time: ")); Serial.println( timeSpentLoop );
   Serial.print( F( "Sleep Time: ")); Serial.println( timeSpentSleeping );
   Serial.print( F( "Millis(): ")); Serial.println( millis() );
+  Serial.print( F( "Total Msg Sent (all types): ")); Serial.println( totalMessagesSent );
+  Serial.print( F( "Total Msg Acked: ")); Serial.println( totalMessagesAcknowledged );
+  Serial.print( F( "Total Msg Compacted: ")); Serial.println( totalCompactedMessagesSent );
+  Serial.print( F( "Total Msg Longform: ")); Serial.println( totalLongFormMessagesSent );
 
 
 }
@@ -246,6 +255,12 @@ nodeDescriptor getNodeDescriptor(nodeID id)
       n.name = "Display-Test";
     break;
 
+  case SN_NODE_PROTO2:
+      n.name = "Proto2";
+    break;
+
+
+
     default:
           n.name = "UNKNOWN";
           break;
@@ -379,13 +394,13 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
         if( msg->reading[i] == SENSORNET_NOT_POPULATED )
           continue;
 
-        Serial.print( "C" );
+        Serial.print( F("C") );
         Serial.print( msg->sequence );
-        Serial.print( "-cbp" );
+        Serial.print( F("-cbp") );
         Serial.print( i );
-            Serial.print( "-cb" );
+            Serial.print( F("-cb") );
                 Serial.print( msg->codebookID );
-            Serial.print( "-cbi" );
+            Serial.print( F("-cbi") );
                 Serial.print( currentCodebook[i] );
         Serial.print( COMMA );
         Serial.print( sender.name );
@@ -406,17 +421,27 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
      return 0;
 }
 
+bool Sensornet::sendWithRetry(byte toAddress, const void* buffer, byte bufferSize, byte retries, byte retryWaitTime) //40ms roundtrip req for  61byte packets
+{
+  markRadioTXStart();
+  boolean r = radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), retries, retryWaitTime  ); 
+  markRadioTXEnd();
+  if( r )
+    totalMessagesAcknowledged++;
+  messageSequence++;
+  totalMessagesSent++;
+}
 
 // void queueReading
 
 void Sensornet::flushQueue()
 {
-    markRadioTXStart();
-    radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 30  ); 
-    markRadioTXEnd();
+   
+    sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 40  ); 
+    totalCompactedMessagesSent++;
     currentCodebook = null;
 
-    messageSequence++;  
+
 }
 
 void Sensornet::sendReading( String sensor, float reading, String units )
@@ -438,8 +463,9 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
     // Check to see if this sensor fits into our current codebook
     int sensorID = getSensorIDforName( sensor );
 
-   Serial.print( "D: Looking up " + sensor );
-Serial.print( "Got:" );
+   Serial.print( F("D: Looking up:") );
+   Serial.print( sensor );
+   Serial.print( F( "Got:" ) );
    Serial.print( sensorID );
     Serial.println();
 
@@ -447,7 +473,7 @@ Serial.print( "Got:" );
     {
         // Looks like we could queue this into the current codebook
 
-       Serial.println( "D: Adding to compressed queue" );
+       Serial.println( F("D: Adding to compressed queue") );
       queueReading( (sensorType) sensorID, reading );
 
 
@@ -480,13 +506,15 @@ Serial.print( "Got:" );
 
     unsigned int l  = strlen(messageChar);
 
-    markRadioTXStart();
-    radio.sendWithRetry( _gateway, messageChar,  l, 3, 30  );  
-    markRadioTXEnd();
 
+    sendWithRetry( _gateway, messageChar, l, 3, 40  ); 
+totalLongFormMessagesSent++;
     messageSequence++;
 
 }
+
+  // After a lot of research, it does appear LLAP has got a really killer implementation
+  // at least as good as LowPower and Narcoleptic - JG 2014
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
