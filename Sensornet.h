@@ -83,6 +83,16 @@ class Sensornet
   	void sleep(byte pinToWakeOn, byte direction, byte bPullup);
   	byte sleepForaWhile (word msecs);
 
+	void startLoop();
+	void endLoop();
+	void systemHibernate( word t );
+	void radioSleep();
+	void markRadioTXStart();
+	void markRadioTXEnd();
+	void markRadioPoweredUp();
+	void markRadioPoweredDown();
+	void printTimeStats();
+
 	RFM69 radio;
  private:
    uint8_t _node;

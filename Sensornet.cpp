@@ -37,10 +37,104 @@ typedef struct sensorDescriptor
 // int baseHewsCodebook[SN_CODEBOOK_MAX_SIZE] = { 0,1,2,3,4,5,6,7,8,9,10,11,12 };
 
 
+unsigned long totalLoops = 0;
+unsigned long timeSpentTX = 0;
+unsigned long timeSpentRadioOn = 0;
+unsigned long timeSpentLoop = 0;
+unsigned long timeSpentSleeping = 0;
+
+unsigned long currentLoopStarttime = 0;
+unsigned long currentTimeLastAwoken = 0;
+unsigned long lastTransmitStarted = 0; 
+unsigned long lastTimeRadioOn = 0;
+
+boolean radioPoweredUp = false;
+
+
+void Sensornet::printTimeStats()
+{
+  Serial.print( F( "Total Loops: ")); Serial.println( totalLoops );
+  Serial.print( F( "TX Time: ")); Serial.println( timeSpentTX );
+  Serial.print( F( "Loop Time: ")); Serial.println( timeSpentLoop );
+  Serial.print( F( "Sleep Time: ")); Serial.println( timeSpentSleeping );
+  Serial.print( F( "Millis(): ")); Serial.println( millis() );
+
+
+}
+
+void Sensornet::radioSleep()
+{
+  markRadioPoweredDown();
+  radio.sleep();
+}
+
+void Sensornet::systemHibernate( word t )
+{
+  radioSleep();
+  Serial.flush();
+  sleepForaWhile( t );
+}
+
+void Sensornet::startLoop()
+{
+  if( currentLoopStarttime != 0 )
+      return;
+  currentLoopStarttime = millis();
+}
+
+void Sensornet::endLoop()
+{
+  timeSpentLoop += millis()-currentLoopStarttime;
+  totalLoops++;
+  currentLoopStarttime = 0;
+}
+
+
+void Sensornet::markRadioTXStart()
+{
+    Serial.println( "--- MARK RADIO TX START");
+  if( lastTransmitStarted != 0 )
+    return;
+  markRadioPoweredUp();
+  lastTransmitStarted = millis();
+}
+
+void Sensornet::markRadioTXEnd()
+{
+   Serial.println( "--- MARK RADIO TX END");
+  if( lastTransmitStarted == 0 )
+      return;
+
+  timeSpentTX += millis() - lastTransmitStarted;
+  lastTransmitStarted = 0;
+}
 
 
 
-#define SENSORNET_SENSOR_LUT_SIZE  25
+void Sensornet::markRadioPoweredUp()
+{
+  if( !radioPoweredUp)
+  {
+    lastTimeRadioOn = millis();
+  }
+  radioPoweredUp = true;
+}
+
+void Sensornet::markRadioPoweredDown()
+{
+    if( radioPoweredUp)
+  {
+    timeSpentRadioOn = millis() - lastTimeRadioOn;
+    lastTimeRadioOn = 0;
+  }
+
+    radioPoweredUp = false;
+
+}
+
+
+
+#define SENSORNET_SENSOR_LUT_SIZE  50
 
 sensorDescriptor sensorLookup[SENSORNET_SENSOR_LUT_SIZE];
 
@@ -52,51 +146,51 @@ void setSensorMap( int index,  const __FlashStringHelper *name,  const __FlashSt
 
 void populateSL()
 {
-  setSensorMap( 0,  F("BATT-V"),                        F("volts")     );
-  setSensorMap( 1,  F("HTU21D-RH"),                     F("%RH")       );
-  setSensorMap( 2,  F("HTU21D-C"),                      F("C")         );
-  setSensorMap( 3,  F("TSL2591-Lux"),                   F("lux")       );
-  setSensorMap( 4,  F("TSL2591-Full"),                  F("raw")       );
-  setSensorMap( 5,  F("TSL2591-IR"),                    F("raw")       );
-  setSensorMap( 6,  F("LUX-FLT"),                       F("lux")       );
-  setSensorMap( 7,  F("LUX-FLT-Broad"),                 F("raw")       );
-  setSensorMap( 8,  F("LUX-FLT-Infra"),                 F("raw")       );
-  setSensorMap( 9,  F("Dallas"),                        F("C")         );
-  setSensorMap( 10, F("Radio-BG-RSSI"),                 F("DB")        );
-  setSensorMap( 11, F("MCP9808"),                       F("C")         );
-  setSensorMap( 12, F("BMP-Temp"),                      F("C")         );
-  setSensorMap( 13, F("BMP-Pressure"),                  F("Pa")        );
-  setSensorMap( 14, F("Current-A"),                     F("Arms")      );
-  setSensorMap( 15, F("Current-B"),                     F("Arms")      );
-  setSensorMap( 16, F("AM2315-Temp"),                   F("C")         );
-  setSensorMap( 17, F("AM2315-RH"),                     F("%RH")       );
-  setSensorMap( 18, F("SHT15-Temp"),                    F("C")         );
-  setSensorMap( 19, F("SHT15-RH"),                      F("%RH")       );
-  setSensorMap( 20, F("Therm0-Temp"),                   F("C")         );
-  setSensorMap( 21, F("Therm1-Temp"),                   F("C")         );
-  setSensorMap( 22, F("Sensor-Test-A"),                 F("unita")      );
-  setSensorMap( 23, F("Sensor-Test-B"),                 F("unitb")      );
-  setSensorMap( 24, F("Radio-Ack-SiBoot"),              F("%")         );
-  setSensorMap( 25, F("Radio-Ack-SiLast"),              F("%")         );
-  setSensorMap( 26, F("Radio-Ack-EWMA"),                F("%")         );
-  setSensorMap( 27, F("T-AvTx-SiBoot"),                 F("ms")        );
-  setSensorMap( 28, F("T-AvTx-SiLast"),                 F("ms")        );
-  setSensorMap( 29, F("T-AvTx-EWMA"),                   F("ms")        );
-  setSensorMap( 30, F("T-Loop-SiBoot"),                 F("ms")        );
-  setSensorMap( 31, F("T-Loop-SiLast"),                 F("ms")        );
-  setSensorMap( 32, F("T-DutyCycle-SiBoot"),            F("%")         );
-  setSensorMap( 33, F("T-DutyCycle-SiLast"),            F("%")         );
-  setSensorMap( 34, F("Total-Loops"),                   F("loops")     );
-  setSensorMap( 35, F("LUX-LOW"),                       F("lux")       );
-  setSensorMap( 36, F("LUX-Ratio"),                     F("%")         );
-  setSensorMap( 37, F("LUX-LOW-Broad"),                 F("raw")       );
-  setSensorMap( 38, F("LUX-LOW-Infra"),                 F("raw")       );
-  setSensorMap( 39, F("DUM"),                           F("na")        );
-  setSensorMap( 40, F("MDWIND"),                        F("raw")       );
-  setSensorMap( 41, F("Radio-Recent-BG-RSSI"),          F("DB")        );
-  setSensorMap( 42, F("SI1145-Vis"),                    F("raw")       );
-  setSensorMap( 43, F("SI1145-IR"),                     F("raw")       );
-  setSensorMap( 44, F("SI1145-UvIndex"),                F("index")     );
+    setSensorMap( 0,  F("BATT-V"),                        F("volts")     );
+    setSensorMap( 1,  F("HTU21D-RH"),                     F("%RH")       );
+    setSensorMap( 2,  F("HTU21D-C"),                      F("C")         );
+    setSensorMap( 3,  F("TSL2591-Lux"),                   F("lux")       );
+    setSensorMap( 4,  F("TSL2591-Full"),                  F("raw")       );
+    setSensorMap( 5,  F("TSL2591-IR"),                    F("raw")       );
+    setSensorMap( 6,  F("LUX-FLT"),                       F("lux")       );
+    setSensorMap( 7,  F("LUX-FLT-Broad"),                 F("raw")       );
+    setSensorMap( 8,  F("LUX-FLT-Infra"),                 F("raw")       );
+    setSensorMap( 9,  F("Dallas"),                        F("C")         );
+    setSensorMap( 10, F("Radio-BG-RSSI"),                 F("DB")        );
+    setSensorMap( 11, F("MCP9808"),                       F("C")         );
+    setSensorMap( 12, F("BMP-Temp"),                      F("C")         );
+    setSensorMap( 13, F("BMP-Pressure"),                  F("Pa")        );
+    setSensorMap( 14, F("Current-A"),                     F("Arms")      );
+    setSensorMap( 15, F("Current-B"),                     F("Arms")      );
+    setSensorMap( 16, F("AM2315-Temp"),                   F("C")         );
+    setSensorMap( 17, F("AM2315-RH"),                     F("%RH")       );
+    setSensorMap( 18, F("SHT15-Temp"),                    F("C")         );
+    setSensorMap( 19, F("SHT15-RH"),                      F("%RH")       );
+    setSensorMap( 20, F("Therm0-Temp"),                   F("C")         );
+    setSensorMap( 21, F("Therm1-Temp"),                   F("C")         );
+    setSensorMap( 22, F("Sensor-Test-A"),                 F("unita")     );
+    setSensorMap( 23, F("Sensor-Test-B"),                 F("unitb")     );
+    setSensorMap( 24, F("Radio-Ack-SiBoot"),              F("%")         );
+    setSensorMap( 25, F("Radio-Ack-SiLast"),              F("%")         );
+    setSensorMap( 26, F("Radio-Ack-EWMA"),                F("%")         );
+    setSensorMap( 27, F("T-AvTx-SiBoot"),                 F("ms")        );
+    setSensorMap( 28, F("T-AvTx-SiLast"),                 F("ms")        );
+    setSensorMap( 29, F("T-AvTx-EWMA"),                   F("ms")        );
+    setSensorMap( 30, F("T-Loop-SiBoot"),                 F("ms")        );
+    setSensorMap( 31, F("T-Loop-SiLast"),                 F("ms")        );
+    setSensorMap( 32, F("T-DutyCycle-SiBoot"),            F("%")         );
+    setSensorMap( 33, F("T-DutyCycle-SiLast"),            F("%")         );
+    setSensorMap( 34, F("Total-Loops"),                   F("loops")     );
+    setSensorMap( 35, F("LUX-LOW"),                       F("lux")       );
+    setSensorMap( 36, F("LUX-Ratio"),                     F("%")         );
+    setSensorMap( 37, F("LUX-LOW-Broad"),                 F("raw")       );
+    setSensorMap( 38, F("LUX-LOW-Infra"),                 F("raw")       );
+    setSensorMap( 39, F("DUM"),                           F("na")        );
+    setSensorMap( 40, F("MDWIND"),                        F("raw")       );
+    setSensorMap( 41, F("Radio-Recent-BG-RSSI"),          F("DB")        );
+    setSensorMap( 42, F("SI1145-Vis"),                    F("raw")       );
+    setSensorMap( 43, F("SI1145-IR"),                     F("raw")       );
+    setSensorMap( 44, F("SI1145-UvIndex"),                F("index")     );
 };
 
 
@@ -157,10 +251,11 @@ nodeDescriptor getNodeDescriptor(nodeID id)
           break;
     ;
 
-
   }
   return n;
 }
+
+
 
 
 void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequency, char *key )
@@ -174,6 +269,7 @@ void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequ
 
   radio.initialize(_frequency,_node,_network);
   radio.encrypt( key );
+  markRadioPoweredUp();
  
   messageSequence = 0;
 
@@ -186,7 +282,6 @@ void Sensornet::setCodebook( int codebook )
   currentCodebookIndex = codebook;
   currentCodebook = (sensorType *)codebookRegistry[codebook];
   compactedMessageBuffer.codebookID = codebook;
-
 }
 
 
@@ -198,6 +293,8 @@ void Sensornet::newQuanta()
 
   compactedMessageBuffer.type = 'C';
   compactedMessageBuffer.sequence = messageSequence;
+
+  compactedMessageBuffer.timestamp = quantaStartTime;
 
 }
 
@@ -314,7 +411,9 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
 
 void Sensornet::flushQueue()
 {
-    radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 30  );  
+    markRadioTXStart();
+    radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 30  ); 
+    markRadioTXEnd();
     currentCodebook = null;
 
     messageSequence++;  
@@ -381,7 +480,9 @@ Serial.print( "Got:" );
 
     unsigned int l  = strlen(messageChar);
 
+    markRadioTXStart();
     radio.sendWithRetry( _gateway, messageChar,  l, 3, 30  );  
+    markRadioTXEnd();
 
     messageSequence++;
 
@@ -445,8 +546,10 @@ void powerDown () {
     ADCSRA = adcsraSave;
 }
 
-byte Sensornet::sleepForaWhile (word msecs) {
+byte Sensornet::sleepForaWhile (word msecs) 
+{
     byte ok = 1;
+
     word msleft = msecs;
     // only slow down for periods longer than the watchdog granularity
     while (msleft >= 16) {
@@ -476,6 +579,9 @@ byte Sensornet::sleepForaWhile (word msecs) {
     extern volatile unsigned long timer0_millis;
     timer0_millis += msecs - msleft;
 #endif
+
+    timeSpentSleeping += msecs - msleft;
+
     return ok; // true if we lost approx the time planned
 }
 
