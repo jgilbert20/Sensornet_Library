@@ -27,8 +27,8 @@ int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
 
 typedef struct sensorDescriptor 
 {
-  const char *name;
-  const char *unit;
+  const __FlashStringHelper *name;
+  const __FlashStringHelper *unit;
 } sensorDescriptor;
 
 
@@ -38,57 +38,65 @@ typedef struct sensorDescriptor
 
 
 
- const sensorDescriptor sensorLookup[]  = 
+
+
+#define SENSORNET_SENSOR_LUT_SIZE  25
+
+sensorDescriptor sensorLookup[SENSORNET_SENSOR_LUT_SIZE];
+
+void setSensorMap( int index,  const __FlashStringHelper *name,  const __FlashStringHelper *unit )
 {
-  { "BATT-V",                        "volts" },     // 0
-  { "HTU21D-RH",                     "%RH"},        // 1
-  { "HTU21D-C",                      "C"},          // 2
-  { "TSL2591-Lux",                   "lux" },       // 3
-  { "TSL2591-Full",                  "raw" },       // 4
-  { "TSL2591-IR",                    "raw" },       // 5
-  { "LUX-FLT",                       "lux" },       // 6
-  { "LUX-FLT-Broad",                 "raw" },       // 7
-  { "LUX-FLT-Infra",                 "raw" },       // 8
-  { "Dallas",                        "C" },         // 9
-  { "Radio-BG-RSSI",                 "DB" },        // 10
-  { "MCP9808",                       "C" },         // 11
-  { "BMP-Temp",                      "C" },         // 12
-  { "BMP-Pressure",                  "Pa" },        // 13
-  { "Current-A",                     "Arms" },      // 14
-  { "Current-B",                     "Arms" },      // 15
-  { "AM2315-Temp",                   "C" },         // 16
-  { "AM2315-RH",                     "%RH" },       // 17
-  { "SHT15-Temp",                    "C" },         // 18
-  { "SHT15-RH",                      "%RH" },       // 19
-  { "Therm0-Temp",                   "C" },         // 20
-  { "Therm1-Temp",                   "C" },         // 21
+  sensorLookup[index].name = name;
+  sensorLookup[index].unit = unit;
+}
 
-  { "Sensor-Test-A",                 "unita"},      // 22
-  { "Sensor-Test-B",                 "unitb"},      // 23
-
-  { "Radio-Ack-SiBoot",              "%" },         // 
-  { "Radio-Ack-SiLast",              "%" },         // 
-  { "Radio-Ack-EWMA",                "%" },         // 
-  { "T-AvTx-SiBoot",                 "ms" },        // 
-  { "T-AvTx-SiLast",                 "ms" },        // 
-  { "T-AvTx-EWMA",                   "ms" },        // 
-  { "T-Loop-SiBoot",                 "ms" },        // 
-  { "T-Loop-SiLast",                 "ms" },        // 
-  { "T-DutyCycle-SiBoot",            "%" },         // 
-  { "T-DutyCycle-SiLast",            "%" },         // 
-  { "Total-Loops",                   "loops" },     // 
-
-  { "LUX-LOW",                       "lux" },
-  { "LUX-Ratio",                     "%" },
-  { "LUX-LOW-Broad",                 "raw" },
-  { "LUX-LOW-Infra",                 "raw" },
-  { "DUM",                           "na" },
-  { "MDWIND",                        "raw" },
-  { "Radio-Recent-BG-RSSI",          "DB" },
-  { "SI1145-Vis",                    "raw" },
-  { "SI1145-IR",                     "raw" },
-  { "SI1145-UvIndex",                "index" }
-
+void populateSL()
+{
+  setSensorMap( 0,  F("BATT-V"),                        F("volts")     );
+  setSensorMap( 1,  F("HTU21D-RH"),                     F("%RH")       );
+  setSensorMap( 2,  F("HTU21D-C"),                      F("C")         );
+  setSensorMap( 3,  F("TSL2591-Lux"),                   F("lux")       );
+  setSensorMap( 4,  F("TSL2591-Full"),                  F("raw")       );
+  setSensorMap( 5,  F("TSL2591-IR"),                    F("raw")       );
+  setSensorMap( 6,  F("LUX-FLT"),                       F("lux")       );
+  setSensorMap( 7,  F("LUX-FLT-Broad"),                 F("raw")       );
+  setSensorMap( 8,  F("LUX-FLT-Infra"),                 F("raw")       );
+  setSensorMap( 9,  F("Dallas"),                        F("C")         );
+  setSensorMap( 10, F("Radio-BG-RSSI"),                 F("DB")        );
+  setSensorMap( 11, F("MCP9808"),                       F("C")         );
+  setSensorMap( 12, F("BMP-Temp"),                      F("C")         );
+  setSensorMap( 13, F("BMP-Pressure"),                  F("Pa")        );
+  setSensorMap( 14, F("Current-A"),                     F("Arms")      );
+  setSensorMap( 15, F("Current-B"),                     F("Arms")      );
+  setSensorMap( 16, F("AM2315-Temp"),                   F("C")         );
+  setSensorMap( 17, F("AM2315-RH"),                     F("%RH")       );
+  setSensorMap( 18, F("SHT15-Temp"),                    F("C")         );
+  setSensorMap( 19, F("SHT15-RH"),                      F("%RH")       );
+  setSensorMap( 20, F("Therm0-Temp"),                   F("C")         );
+  setSensorMap( 21, F("Therm1-Temp"),                   F("C")         );
+  setSensorMap( 22, F("Sensor-Test-A"),                 F("unita")      );
+  setSensorMap( 23, F("Sensor-Test-B"),                 F("unitb")      );
+  setSensorMap( 24, F("Radio-Ack-SiBoot"),              F("%")         );
+  setSensorMap( 25, F("Radio-Ack-SiLast"),              F("%")         );
+  setSensorMap( 26, F("Radio-Ack-EWMA"),                F("%")         );
+  setSensorMap( 27, F("T-AvTx-SiBoot"),                 F("ms")        );
+  setSensorMap( 28, F("T-AvTx-SiLast"),                 F("ms")        );
+  setSensorMap( 29, F("T-AvTx-EWMA"),                   F("ms")        );
+  setSensorMap( 30, F("T-Loop-SiBoot"),                 F("ms")        );
+  setSensorMap( 31, F("T-Loop-SiLast"),                 F("ms")        );
+  setSensorMap( 32, F("T-DutyCycle-SiBoot"),            F("%")         );
+  setSensorMap( 33, F("T-DutyCycle-SiLast"),            F("%")         );
+  setSensorMap( 34, F("Total-Loops"),                   F("loops")     );
+  setSensorMap( 35, F("LUX-LOW"),                       F("lux")       );
+  setSensorMap( 36, F("LUX-Ratio"),                     F("%")         );
+  setSensorMap( 37, F("LUX-LOW-Broad"),                 F("raw")       );
+  setSensorMap( 38, F("LUX-LOW-Infra"),                 F("raw")       );
+  setSensorMap( 39, F("DUM"),                           F("na")        );
+  setSensorMap( 40, F("MDWIND"),                        F("raw")       );
+  setSensorMap( 41, F("Radio-Recent-BG-RSSI"),          F("DB")        );
+  setSensorMap( 42, F("SI1145-Vis"),                    F("raw")       );
+  setSensorMap( 43, F("SI1145-IR"),                     F("raw")       );
+  setSensorMap( 44, F("SI1145-UvIndex"),                F("index")     );
 };
 
 
@@ -101,6 +109,7 @@ typedef struct sensorDescriptor
 Sensornet::Sensornet() {
   ;
   currentCodebook  = null; 
+  populateSL();
 }
 
 
@@ -220,23 +229,21 @@ int Sensornet::queueReading( sensorType sensor, float value )
 }
 
 
-inline const char *getSensorName( sensorType t )
+inline const __FlashStringHelper *getSensorName( sensorType t )
 {
   return sensorLookup[t].name;
 }
 
-inline const char *getSensorUnits( sensorType t )
+inline const __FlashStringHelper *getSensorUnits( sensorType t )
 {
   return sensorLookup[t].unit;
 }
-
-#define SENSORNET_SENSOR_LUT_SIZE  20
 
 int Sensornet::getSensorIDforName( const char *n )
 {
   for( int i = 0 ; i < SENSORNET_SENSOR_LUT_SIZE ; i++ )
   {
-      if( strcmp( sensorLookup[i].name, n ) == 0 )
+      if( strcmp_P( n, (const char *)sensorLookup[i].name ) == 0 )
           return i;
   }
 
@@ -248,7 +255,7 @@ int Sensornet::getSensorIDforName( const char *n )
 {
   for( int i = 0 ; i < SENSORNET_SENSOR_LUT_SIZE ; i++ )
     {
-      if( strcmp( sensorLookup[i].name, n.c_str() ) == 0 )
+      if( strcmp_P(  n.c_str(), (const char *)sensorLookup[i].name ) == 0 )
           return i;
       }
 
@@ -277,14 +284,20 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
 
         Serial.print( "C" );
         Serial.print( msg->sequence );
-        Serial.print( "-" );
+        Serial.print( "-cbp" );
         Serial.print( i );
+            Serial.print( "-cb" );
+                Serial.print( msg->codebookID );
+            Serial.print( "-cbi" );
+                Serial.print( currentCodebook[i] );
         Serial.print( COMMA );
         Serial.print( sender.name );
         Serial.print( COMMA );
         Serial.print( msg->timestamp );
         Serial.print( COMMA );
-        Serial.print( getSensorName( currentCodebook[i] ) );
+        Serial.print( (const __FlashStringHelper *) getSensorName( currentCodebook[i] ) );
+       // Serial.print( (const __FlashStringHelper *) F("yes") );
+        //Serial.print( (const __FlashStringHelper *) sensorLookup[22].name );
         Serial.print( COMMA );
         Serial.print( msg->reading[i] );
         Serial.print( COMMA );
@@ -326,16 +339,16 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
     // Check to see if this sensor fits into our current codebook
     int sensorID = getSensorIDforName( sensor );
 
-  //  Serial.print( "D: Looking up " + sensor );
-//Serial.print( "Got:" );
-   // Serial.print( sensorID );
-    // Serial.println();
+   Serial.print( "D: Looking up " + sensor );
+Serial.print( "Got:" );
+   Serial.print( sensorID );
+    Serial.println();
 
     if( sensorID >= 0 )
     {
         // Looks like we could queue this into the current codebook
 
-     //  Serial.println( "D: Adding to compressed queue" );
+       Serial.println( "D: Adding to compressed queue" );
       queueReading( (sensorType) sensorID, reading );
 
 
