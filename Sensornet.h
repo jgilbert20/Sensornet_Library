@@ -33,10 +33,11 @@ typedef struct compactedMessage
 
 typedef enum sensorType
 { 
-	SENSOR_TEST_A    = 0,
-	SENSOR_TEST_B 	= 1,
-	HTU21D_RH = 2,
-	HTU21D_C = 3
+		HTU21D_RH = 1,
+	HTU21D_C = 2,
+	SENSOR_TEST_A    = 22,
+	SENSOR_TEST_B 	= 23
+
 } sensorType;
 
 
@@ -62,14 +63,16 @@ class Sensornet
 	unsigned long messageSequence;
 	nodeDescriptor thisNodeDesc;
 
-
 	Sensornet(void);
 
 	void newQuanta();
 
 	void flushQueue(); 
 	void setCodebook( int codebookID );
-	void queueReading( sensorType sensor, float value );
+	int getSensorIDforName( const char *n );
+	int getSensorIDforName( String n );
+
+	int queueReading( sensorType sensor, float value );
     void sendStructured( String sensor, float reading, String units, String memo );
  	void sendReading( String sensor, float reading, String units );
 	int writeCompressedPacketToSerial( nodeID origin, char *buffer );

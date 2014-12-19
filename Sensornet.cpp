@@ -3,8 +3,104 @@
 
 #include <RFM69.h> 
 
+
+#define SENSORNET_NOT_POPULATED -999999.99
+
+
+unsigned long quantaStartTime;
+int currentCodebookIndex;
+sensorType *currentCodebook;
+compactedMessage compactedMessageBuffer;
+
+const char* COMMA = ",";
+
+
+
+
+int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
+{
+  { 0,1,2,3,4,5,6,7,8,9,10,22,23 },
+  { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C },
+  { 0,1,2,3,4,5,6,7,8,9,10,11,12 }
+};
+
+
+typedef struct sensorDescriptor 
+{
+  const char *name;
+  const char *unit;
+} sensorDescriptor;
+
+
+
+//sensorType testCodebook[SN_CODEBOOK_MAX_SIZE] = { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C };
+// int baseHewsCodebook[SN_CODEBOOK_MAX_SIZE] = { 0,1,2,3,4,5,6,7,8,9,10,11,12 };
+
+
+
+ const sensorDescriptor sensorLookup[]  = 
+{
+  { "BATT-V",                        "volts" },     // 0
+  { "HTU21D-RH",                     "%RH"},        // 1
+  { "HTU21D-C",                      "C"},          // 2
+  { "TSL2591-Lux",                   "lux" },       // 3
+  { "TSL2591-Full",                  "raw" },       // 4
+  { "TSL2591-IR",                    "raw" },       // 5
+  { "LUX-FLT",                       "lux" },       // 6
+  { "LUX-FLT-Broad",                 "raw" },       // 7
+  { "LUX-FLT-Infra",                 "raw" },       // 8
+  { "Dallas",                        "C" },         // 9
+  { "Radio-BG-RSSI",                 "DB" },        // 10
+  { "MCP9808",                       "C" },         // 11
+  { "BMP-Temp",                      "C" },         // 12
+  { "BMP-Pressure",                  "Pa" },        // 13
+  { "Current-A",                     "Arms" },      // 14
+  { "Current-B",                     "Arms" },      // 15
+  { "AM2315-Temp",                   "C" },         // 16
+  { "AM2315-RH",                     "%RH" },       // 17
+  { "SHT15-Temp",                    "C" },         // 18
+  { "SHT15-RH",                      "%RH" },       // 19
+  { "Therm0-Temp",                   "C" },         // 20
+  { "Therm1-Temp",                   "C" },         // 21
+
+  { "Sensor-Test-A",                 "unita"},      // 22
+  { "Sensor-Test-B",                 "unitb"},      // 23
+
+  { "Radio-Ack-SiBoot",              "%" },         // 
+  { "Radio-Ack-SiLast",              "%" },         // 
+  { "Radio-Ack-EWMA",                "%" },         // 
+  { "T-AvTx-SiBoot",                 "ms" },        // 
+  { "T-AvTx-SiLast",                 "ms" },        // 
+  { "T-AvTx-EWMA",                   "ms" },        // 
+  { "T-Loop-SiBoot",                 "ms" },        // 
+  { "T-Loop-SiLast",                 "ms" },        // 
+  { "T-DutyCycle-SiBoot",            "%" },         // 
+  { "T-DutyCycle-SiLast",            "%" },         // 
+  { "Total-Loops",                   "loops" },     // 
+
+  { "LUX-LOW",                       "lux" },
+  { "LUX-Ratio",                     "%" },
+  { "LUX-LOW-Broad",                 "raw" },
+  { "LUX-LOW-Infra",                 "raw" },
+  { "DUM",                           "na" },
+  { "MDWIND",                        "raw" },
+  { "Radio-Recent-BG-RSSI",          "DB" },
+  { "SI1145-Vis",                    "raw" },
+  { "SI1145-IR",                     "raw" },
+  { "SI1145-UvIndex",                "index" }
+
+};
+
+
+
+
+
+
+
+
 Sensornet::Sensornet() {
   ;
+  currentCodebook  = null; 
 }
 
 
@@ -75,18 +171,15 @@ void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequ
 }
 
 
-unsigned long quantaStartTime;
-int currentCodebook;
-compactedMessage compactedMessageBuffer;
-
 
 void Sensornet::setCodebook( int codebook )
 {
-  currentCodebook = codebook;
+  currentCodebookIndex = codebook;
+  currentCodebook = (sensorType *)codebookRegistry[codebook];
+  compactedMessageBuffer.codebookID = codebook;
 
 }
 
-#define SENSORNET_NOT_POPULATED -999999.99
 
 void Sensornet::newQuanta()
 {
@@ -100,10 +193,12 @@ void Sensornet::newQuanta()
 }
 
 
-sensorType coreCodebook[14] = { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C };
 
 int findIndexForSensor( sensorType *codebook, sensorType query )
 {
+  if( codebook == null)
+    return -2;
+
   for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
     if( query == codebook[i] )
         return i; 
@@ -111,74 +206,19 @@ int findIndexForSensor( sensorType *codebook, sensorType query )
   return -1;
 }
 
-void Sensornet::queueReading( sensorType sensor, float value )
+
+int Sensornet::queueReading( sensorType sensor, float value )
 {
   // Look up the index in the current codebook
-  int index = findIndexForSensor( coreCodebook, sensor );
+  int index = findIndexForSensor( currentCodebook, sensor );
+ 
+  if( index < 0 )
+      return -1;
+
   compactedMessageBuffer.reading[index] = value;
+  return 0;
 }
 
-const char* COMMA = ",";
-
-
-typedef struct sensorDescriptor 
-{
-  const char *name;
-  const char *unit;
-} sensorDescriptor;
-
-const sensorDescriptor sensorLookup[] = 
-{
-  { "BATT-V",                        "volts" },
-  { "HTU21D-RH",                     "%RH"},
-  { "HTU21D-C",                      "C"},
-  { "TSL2591-Lux",                   "lux" },
-  { "TSL2591-Full",                  "raw" },
-  { "TSL2591-IR",                    "raw" },
-  { "LUX-FLT",                       "lux" },
-  { "LUX-FLT-Broad",                 "raw" },
-  { "LUX-FLT-Infra",                 "raw" },
-  { "Dallas",                        "C" },
-
-  { "BMP-Temp",                      "C" },
-  { "BMP-Pressure",                  "Pa" },
-  { "Current-A",                     "Arms" },
-  { "Current-B",                     "Arms" },
-  { "AM2315-Temp",                   "C" },
-  { "AM2315-RH",                     "%RH" },
-  { "MCP9808",                       "C" },
-  { "SHT15-Temp",                    "C" },
-  { "SHT15-RH",                      "%RH" },
-  { "Therm0-Temp",                   "C" },
-  { "Therm1-Temp",                   "C" },
-
-  { "Sensor-Test-A",                 "unita"},
-  { "Sensor-Test-B",                 "unitb"},
-
-  { "Radio-Ack-SiBoot",              "%" },
-  { "Radio-Ack-SiLast",              "%" },
-  { "Radio-Ack-EWMA",                "%" },
-  { "T-AvTx-SiBoot",                 "ms" },
-  { "T-AvTx-SiLast",                 "ms" },
-  { "T-AvTx-EWMA",                   "ms" },
-  { "T-Loop-SiBoot",                 "ms" },
-  { "T-Loop-SiLast",                 "ms" },
-  { "T-DutyCycle-SiBoot",            "%" },
-  { "T-DutyCycle-SiLast",            "%" },
-  { "Total-Loops",                   "loops" },
-
-  { "LUX-LOW",                       "lux" },
-  { "LUX-Ratio",                     "%" },
-  { "LUX-LOW-Broad",                 "raw" },
-  { "LUX-LOW-Infra",                 "raw" },
-  { "DUM",                           "na" },
-  { "MDWIND",                        "raw" },
-  { "Radio-BG-RSSI",                 "DB" },
-  { "Radio-Recent-BG-RSSI",          "DB" },
-  { "SI1145-Vis",                    "raw" },
-  { "SI1145-IR",                     "raw" },
-  { "SI1145-UvIndex",                "index" }
-};
 
 inline const char *getSensorName( sensorType t )
 {
@@ -188,6 +228,32 @@ inline const char *getSensorName( sensorType t )
 inline const char *getSensorUnits( sensorType t )
 {
   return sensorLookup[t].unit;
+}
+
+#define SENSORNET_SENSOR_LUT_SIZE  20
+
+int Sensornet::getSensorIDforName( const char *n )
+{
+  for( int i = 0 ; i < SENSORNET_SENSOR_LUT_SIZE ; i++ )
+  {
+      if( strcmp( sensorLookup[i].name, n ) == 0 )
+          return i;
+  }
+
+  return -1;
+
+}
+
+ int Sensornet::getSensorIDforName( String n )
+{
+  for( int i = 0 ; i < SENSORNET_SENSOR_LUT_SIZE ; i++ )
+    {
+      if( strcmp( sensorLookup[i].name, n.c_str() ) == 0 )
+          return i;
+      }
+
+return -1;
+
 }
 
 
@@ -201,6 +267,8 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
 
     if( msg->type != 'C' )
       return -1;
+
+    setCodebook( msg->codebookID );
 
      for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
      {
@@ -216,15 +284,16 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
         Serial.print( COMMA );
         Serial.print( msg->timestamp );
         Serial.print( COMMA );
-        Serial.print( getSensorName( coreCodebook[i] ) );
+        Serial.print( getSensorName( currentCodebook[i] ) );
         Serial.print( COMMA );
         Serial.print( msg->reading[i] );
         Serial.print( COMMA );
-        Serial.print( getSensorUnits( coreCodebook[i] ) );
+        Serial.print( getSensorUnits( currentCodebook[i] ) );
         Serial.print( COMMA ); 
         Serial.println();
      }
 
+     return 0;
 }
 
 
@@ -233,6 +302,7 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
 void Sensornet::flushQueue()
 {
     radio.sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 30  );  
+    currentCodebook = null;
 
     messageSequence++;  
 }
@@ -247,6 +317,31 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 {
     nodeDescriptor node = getNodeDescriptor( (nodeID) _node );
 
+ // Serial.println( "D: send structured: Sending reading for " + sensor + "value " + reading );
+
+  if( currentCodebook != null )
+  {
+
+
+    // Check to see if this sensor fits into our current codebook
+    int sensorID = getSensorIDforName( sensor );
+
+  //  Serial.print( "D: Looking up " + sensor );
+//Serial.print( "Got:" );
+   // Serial.print( sensorID );
+    // Serial.println();
+
+    if( sensorID >= 0 )
+    {
+        // Looks like we could queue this into the current codebook
+
+     //  Serial.println( "D: Adding to compressed queue" );
+      queueReading( (sensorType) sensorID, reading );
+
+
+      return;
+    }
+  }
 
     long unsigned int now = millis();
     char messageChar[MAX_MESSAGE_LEN+1];
