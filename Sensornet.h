@@ -72,6 +72,7 @@ class Sensornet
 	void queueReading( sensorType sensor, float value );
     void sendStructured( String sensor, float reading, String units, String memo );
  	void sendReading( String sensor, float reading, String units );
+	int writeCompressedPacketToSerial( nodeID origin, char *buffer );
 
   	boolean begin();
   	uint8_t writeParam(uint8_t p, uint8_t v);

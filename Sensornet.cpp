@@ -86,11 +86,13 @@ void Sensornet::setCodebook( int codebook )
 
 }
 
+#define SENSORNET_NOT_POPULATED -999999.99
+
 void Sensornet::newQuanta()
 {
   quantaStartTime = millis();
   for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
-    compactedMessageBuffer.reading[i] = 0.0;
+    compactedMessageBuffer.reading[i] = SENSORNET_NOT_POPULATED;
 
   compactedMessageBuffer.type = 'C';
   compactedMessageBuffer.sequence = messageSequence;
@@ -116,6 +118,114 @@ void Sensornet::queueReading( sensorType sensor, float value )
   compactedMessageBuffer.reading[index] = value;
 }
 
+const char* COMMA = ",";
+
+
+typedef struct sensorDescriptor 
+{
+  const char *name;
+  const char *unit;
+} sensorDescriptor;
+
+const sensorDescriptor sensorLookup[] = 
+{
+  { "BATT-V",                        "volts" },
+  { "HTU21D-RH",                     "%RH"},
+  { "HTU21D-C",                      "C"},
+  { "TSL2591-Lux",                   "lux" },
+  { "TSL2591-Full",                  "raw" },
+  { "TSL2591-IR",                    "raw" },
+  { "LUX-FLT",                       "lux" },
+  { "LUX-FLT-Broad",                 "raw" },
+  { "LUX-FLT-Infra",                 "raw" },
+  { "Dallas",                        "C" },
+
+  { "BMP-Temp",                      "C" },
+  { "BMP-Pressure",                  "Pa" },
+  { "Current-A",                     "Arms" },
+  { "Current-B",                     "Arms" },
+  { "AM2315-Temp",                   "C" },
+  { "AM2315-RH",                     "%RH" },
+  { "MCP9808",                       "C" },
+  { "SHT15-Temp",                    "C" },
+  { "SHT15-RH",                      "%RH" },
+  { "Therm0-Temp",                   "C" },
+  { "Therm1-Temp",                   "C" },
+
+  { "Sensor-Test-A",                 "unita"},
+  { "Sensor-Test-B",                 "unitb"},
+
+  { "Radio-Ack-SiBoot",              "%" },
+  { "Radio-Ack-SiLast",              "%" },
+  { "Radio-Ack-EWMA",                "%" },
+  { "T-AvTx-SiBoot",                 "ms" },
+  { "T-AvTx-SiLast",                 "ms" },
+  { "T-AvTx-EWMA",                   "ms" },
+  { "T-Loop-SiBoot",                 "ms" },
+  { "T-Loop-SiLast",                 "ms" },
+  { "T-DutyCycle-SiBoot",            "%" },
+  { "T-DutyCycle-SiLast",            "%" },
+  { "Total-Loops",                   "loops" },
+
+  { "LUX-LOW",                       "lux" },
+  { "LUX-Ratio",                     "%" },
+  { "LUX-LOW-Broad",                 "raw" },
+  { "LUX-LOW-Infra",                 "raw" },
+  { "DUM",                           "na" },
+  { "MDWIND",                        "raw" },
+  { "Radio-BG-RSSI",                 "DB" },
+  { "Radio-Recent-BG-RSSI",          "DB" },
+  { "SI1145-Vis",                    "raw" },
+  { "SI1145-IR",                     "raw" },
+  { "SI1145-UvIndex",                "index" }
+};
+
+inline const char *getSensorName( sensorType t )
+{
+  return sensorLookup[t].name;
+}
+
+inline const char *getSensorUnits( sensorType t )
+{
+  return sensorLookup[t].unit;
+}
+
+
+int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
+{
+    compactedMessage *msg = &compactedMessageBuffer;
+    nodeDescriptor sender = getNodeDescriptor( origin );
+
+   // if( buffer == null )
+   //     return -1;
+
+    if( msg->type != 'C' )
+      return -1;
+
+     for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
+     {
+        if( msg->reading[i] == SENSORNET_NOT_POPULATED )
+          continue;
+
+        Serial.print( "C" );
+        Serial.print( msg->sequence );
+        Serial.print( "-" );
+        Serial.print( i );
+        Serial.print( COMMA );
+        Serial.print( sender.name );
+        Serial.print( COMMA );
+        Serial.print( msg->timestamp );
+        Serial.print( COMMA );
+        Serial.print( getSensorName( coreCodebook[i] ) );
+        Serial.print( COMMA );
+        Serial.print( msg->reading[i] );
+        Serial.print( COMMA );
+        Serial.print( getSensorUnits( coreCodebook[i] ) );
+        Serial.print( COMMA ); 
+        Serial.println();
+     }
+
+}
 
 
 // void queueReading
