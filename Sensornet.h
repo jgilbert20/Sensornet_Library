@@ -13,6 +13,7 @@
 
 typedef enum nodeID
 { 
+	SN_NODE_GATEWAY = 1,
 	SN_NODE_PROTO2 = 22,
 	API_TEST    = 101,
 	DUST_SENSOR = 102,
@@ -76,7 +77,8 @@ class Sensornet
 	int queueReading( sensorType sensor, float value );
     void sendStructured( String sensor, float reading, String units, String memo );
  	void sendReading( String sensor, float reading, String units );
-	int writeCompressedPacketToSerial( nodeID origin, char *buffer );
+	int writeCompressedPacketToSerial( nodeID origin, char *buffer, int len, int rssi );
+int writePacketToSerial( nodeID origin, char *buffer, int len, int rssi );
 
   	boolean begin();
   	uint8_t writeParam(uint8_t p, uint8_t v);
@@ -86,6 +88,7 @@ class Sensornet
 
 	void startLoop();
 	void endLoop();
+	void resetCompression();
 	void systemHibernate( word t );
 	void radioSleep();
 	void markRadioTXStart();
@@ -94,15 +97,23 @@ class Sensornet
 	void markRadioPoweredDown();
 	void printTimeStats();
 	bool sendWithRetry(byte toAddress, const void* buffer, byte bufferSize, byte retries=2, byte retryWaitTime=40);
+    boolean isGateway();
 
+	// debugging helper functions from altaveesta
 
 	RFM69 radio;
  private:
+ 	boolean compressionSterile;
    uint8_t _node;
  uint8_t _network ;
  uint8_t _gateway ;
+ boolean _isGateway ;
 uint8_t  _frequency ;
  };
  
+ 	void debug_cbuf(char cbuf[], int idx, bool clear);
+	void print_binary(int v, int num_places);
+	void print_hex(int v, int num_places);
+
 
 #endif

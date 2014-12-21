@@ -14,7 +14,8 @@ compactedMessage compactedMessageBuffer;
 
 const char* COMMA = ",";
 
-
+// A large common buffer for packing and unpacking data
+char messageChar[MAX_MESSAGE_LEN+1];
 
 
 int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
@@ -24,7 +25,7 @@ int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
   { 0,1,2,3,4,5,6,7,8,9,10,11,12 }
 };
 
-
+// Each entry is 4 bytes (ptrs are apparently 16bit)
 typedef struct sensorDescriptor 
 {
   const __FlashStringHelper *name;
@@ -58,15 +59,17 @@ boolean radioPoweredUp = false;
 
 void Sensornet::printTimeStats()
 {
-  Serial.print( F( "Total Loops: ")); Serial.println( totalLoops );
-  Serial.print( F( "TX Time: ")); Serial.println( timeSpentTX );
-  Serial.print( F( "Loop Time: ")); Serial.println( timeSpentLoop );
-  Serial.print( F( "Sleep Time: ")); Serial.println( timeSpentSleeping );
-  Serial.print( F( "Millis(): ")); Serial.println( millis() );
-  Serial.print( F( "Total Msg Sent (all types): ")); Serial.println( totalMessagesSent );
-  Serial.print( F( "Total Msg Acked: ")); Serial.println( totalMessagesAcknowledged );
-  Serial.print( F( "Total Msg Compacted: ")); Serial.println( totalCompactedMessagesSent );
-  Serial.print( F( "Total Msg Longform: ")); Serial.println( totalLongFormMessagesSent );
+  Serial.print( F( "D: [SN] Total Loops: ")); Serial.println( totalLoops );
+  Serial.print( F( "D: [SN] TX Time: ")); Serial.println( timeSpentTX );
+  Serial.print( F( "D: [SN] TX Time/L: ")); Serial.println( timeSpentTX / totalLoops  );
+  Serial.print( F( "D: [SN] Loop Time: ")); Serial.println( timeSpentLoop );
+  Serial.print( F( "D: [SN] Loop Time/L: ")); Serial.println( timeSpentLoop / totalLoops );
+  Serial.print( F( "D: [SN] Sleep Time: ")); Serial.println( timeSpentSleeping );
+  Serial.print( F( "D: [SN] Millis(): ")); Serial.println( millis() );
+  Serial.print( F( "D: [SN] Total Msg Sent (all types): ")); Serial.println( totalMessagesSent );
+  Serial.print( F( "D: [SN] Total Msg Acked: ")); Serial.println( totalMessagesAcknowledged );
+  Serial.print( F( "D: [SN] Total Msg Compacted: ")); Serial.println( totalCompactedMessagesSent );
+  Serial.print( F( "D: [SN] Total Msg Longform: ")); Serial.println( totalLongFormMessagesSent );
 
 
 }
@@ -86,6 +89,7 @@ void Sensornet::systemHibernate( word t )
 
 void Sensornet::startLoop()
 {
+  Serial.println( F("D: --- MARK LOOP START"));
   if( currentLoopStarttime != 0 )
       return;
   currentLoopStarttime = millis();
@@ -93,6 +97,8 @@ void Sensornet::startLoop()
 
 void Sensornet::endLoop()
 {
+  Serial.println( F("D: --- MARK LOOP END"));
+
   timeSpentLoop += millis()-currentLoopStarttime;
   totalLoops++;
   currentLoopStarttime = 0;
@@ -101,7 +107,7 @@ void Sensornet::endLoop()
 
 void Sensornet::markRadioTXStart()
 {
-    Serial.println( "--- MARK RADIO TX START");
+    Serial.println( F("D: --- MARK RADIO TX START"));
   if( lastTransmitStarted != 0 )
     return;
   markRadioPoweredUp();
@@ -110,7 +116,7 @@ void Sensornet::markRadioTXStart()
 
 void Sensornet::markRadioTXEnd()
 {
-   Serial.println( "--- MARK RADIO TX END");
+   Serial.println( F("D: --- MARK RADIO TX END"));
   if( lastTransmitStarted == 0 )
       return;
 
@@ -142,6 +148,7 @@ void Sensornet::markRadioPoweredDown()
 }
 
 
+// size of 50 seems to use about 200 bytes, sugginesting each entry is 4 bytes
 
 #define SENSORNET_SENSOR_LUT_SIZE  50
 
@@ -157,7 +164,7 @@ void populateSL()
 {
     setSensorMap( 0,  F("BATT-V"),                        F("volts")     );
     setSensorMap( 1,  F("HTU21D-RH"),                     F("%RH")       );
-    setSensorMap( 2,  F("HTU21D-C"),                      F("C")         );
+    setSensorMap( 2,  F("HTU21D-Temp"),                   F("C")         );
     setSensorMap( 3,  F("TSL2591-Lux"),                   F("lux")       );
     setSensorMap( 4,  F("TSL2591-Full"),                  F("raw")       );
     setSensorMap( 5,  F("TSL2591-IR"),                    F("raw")       );
@@ -200,6 +207,7 @@ void populateSL()
     setSensorMap( 42, F("SI1145-Vis"),                    F("raw")       );
     setSensorMap( 43, F("SI1145-IR"),                     F("raw")       );
     setSensorMap( 44, F("SI1145-UvIndex"),                F("index")     );
+
 };
 
 
@@ -255,11 +263,14 @@ nodeDescriptor getNodeDescriptor(nodeID id)
       n.name = "Display-Test";
     break;
 
+
   case SN_NODE_PROTO2:
       n.name = "Proto2";
     break;
 
-
+  case SN_NODE_GATEWAY:
+      n.name = "Gateway-AVR";
+    break;
 
     default:
           n.name = "UNKNOWN";
@@ -286,11 +297,21 @@ void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequ
   radio.encrypt( key );
   markRadioPoweredUp();
  
+
+if( _gateway == _node )
+  _isGateway =  true;
+else
+  _isGateway = false;
+
   messageSequence = 0;
 
 }
 
+boolean Sensornet::isGateway()
+{
 
+    return _isGateway;
+}
 
 void Sensornet::setCodebook( int codebook )
 {
@@ -299,6 +320,8 @@ void Sensornet::setCodebook( int codebook )
   compactedMessageBuffer.codebookID = codebook;
 }
 
+
+// Clears out the codebook (must always be reset) - does not specifically clear out the codebook
 
 void Sensornet::newQuanta()
 {
@@ -311,7 +334,19 @@ void Sensornet::newQuanta()
 
   compactedMessageBuffer.timestamp = quantaStartTime;
 
+  compressionSterile = true;
 }
+
+// Resets the engine (used after a flush and after a packet decode)
+
+void Sensornet::resetCompression()
+{
+    // currentCodebook = null;
+      for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
+        compactedMessageBuffer.reading[i] = SENSORNET_NOT_POPULATED;
+    compressionSterile = true;
+}
+
 
 
 
@@ -337,6 +372,8 @@ int Sensornet::queueReading( sensorType sensor, float value )
       return -1;
 
   compactedMessageBuffer.reading[index] = value;
+
+  compressionSterile = false;
   return 0;
 }
 
@@ -376,25 +413,92 @@ return -1;
 }
 
 
-int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
+
+
+
+
+#define SENSORNET_COMPACTED_MAGIC 'C'
+
+// Translates a packet into output to the serial line in a common format
+// The sensornet output logging format is a CSV delimited sequence of fields
+// C or R messages have this structure:
+// Logline ID, Node, Millis of collection, Sensor, Reading, Units, Memo, RSSI during receipt, Node ID 
+
+int Sensornet::writePacketToSerial( nodeID origin, char *buffer, int len, int rssi )
 {
-    compactedMessage *msg = &compactedMessageBuffer;
+  if( len < 1 )
+    return -1;
+
+  char msgType = buffer[0];
+
+    // Check if this is a compacted message? If so, pass to the handler
+
+  if( msgType == 'C' )
+  {
+        debug_cbuf( buffer, len, false );
+
+     writeCompressedPacketToSerial( origin, buffer, len, rssi );
+      return 0;
+  }
+
+  // If its a longform packet, its already in the right format, just echo it
+
+  if( msgType == 'R' )
+  {
+       Serial.print( buffer );
+    Serial.print( COMMA );
+    Serial.print( rssi );
+    Serial.print( COMMA );
+    Serial.print( origin, DEC);
+    Serial.println();
+
+      return 0;
+  }
+
+  // If neither, we have a snowflake.. Dump what we got for later analysis
+
+  debug_cbuf( buffer, len, false );
+
+  Serial.print( buffer );
+  Serial.print( COMMA );
+  Serial.print( rssi );
+  Serial.print( COMMA );
+  Serial.print( origin, DEC);
+  Serial.println();
+
+
+
+
+      return 0;
+}
+
+int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int len, int rssi )
+{
+    compactedMessage *msg = (compactedMessage *)buffer;
     nodeDescriptor sender = getNodeDescriptor( origin );
 
    // if( buffer == null )
    //     return -1;
 
-    if( msg->type != 'C' )
+    if( msg->type != SENSORNET_COMPACTED_MAGIC )
       return -1;
 
     setCodebook( msg->codebookID );
+    Serial.print( F("D: Compressed message on codebook: "));
+    Serial.println( msg->codebookID, DEC );
 
      for( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
      {
+        Serial.print( F("D:  Checking codebook position="));
+        Serial.print( i );
+        Serial.print( F(" reading=")) ;
+        Serial.print( msg->reading[i] );
+        Serial.println();
+
         if( msg->reading[i] == SENSORNET_NOT_POPULATED )
           continue;
 
-        Serial.print( F("C") );
+        Serial.print( SENSORNET_COMPACTED_MAGIC );
         Serial.print( msg->sequence );
         Serial.print( F("-cbp") );
         Serial.print( i );
@@ -414,12 +518,22 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer )
         Serial.print( msg->reading[i] );
         Serial.print( COMMA );
         Serial.print( getSensorUnits( currentCodebook[i] ) );
+        Serial.print( COMMA );
+        // memo goes here 
         Serial.print( COMMA ); 
+        Serial.print( rssi );
+        Serial.print( COMMA ); 
+        Serial.print( (int)origin );
+        
         Serial.println();
      }
 
+     resetCompression();
+
      return 0;
 }
+
+// A common entry point for all radio transmission
 
 bool Sensornet::sendWithRetry(byte toAddress, const void* buffer, byte bufferSize, byte retries, byte retryWaitTime) //40ms roundtrip req for  61byte packets
 {
@@ -432,35 +546,67 @@ bool Sensornet::sendWithRetry(byte toAddress, const void* buffer, byte bufferSiz
   totalMessagesSent++;
 }
 
-// void queueReading
+// Flushes out the current packet, and resets the compression engine.
 
 void Sensornet::flushQueue()
 {
-   
+
+  if( !compressionSterile )
+  {   
+    debug_cbuf( (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), false );
     sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 40  ); 
     totalCompactedMessagesSent++;
-    currentCodebook = null;
-
+ }
+  resetCompression();
 
 }
+
 
 void Sensornet::sendReading( String sensor, float reading, String units )
 {
     sendStructured( sensor, reading, units, F("") );
 }
 
+// Normal strncpy seems to try to pad the buffer with nulls, i don't want that
+// since this seems like a waste of CPU cycles
+
+int nopad_strncpy( char *dest, const char *src, int bufsize )
+{
+  int i; 
+   for( i = 0 ; i<bufsize ; i++ )
+   {
+      dest[i] = src[i];
+      if( dest[i] == 0 )
+        return i;
+   }
+
+  return i; 
+
+}
+
+// Send structured transmits a sensor reading "upstream" based on a fixed set of rules
+// designed to bring the reading in a consistent way to the gateway. It tries to be
+// as effiecent as possible. 
+// If the calling node is remote, the library sends a packet to the gateway. The format of the packet
+// depends on the context of the caller. If called with a set codebook and time quanta,
+// the reading is placed into a compressed buffer that will be pooled with other readings
+// and transmitted during flushQueue(); Otherwise, a long form CSV-like message
+// is created and transmitted to the gateway.
+// As a special case, if the caller itself is configured as a gateway, no data transmission
+// is performed, and instead the reading is relayed to the serial port in SNCLF syntax.
 
 void Sensornet::sendStructured( String sensor, float reading, String units, String memo )
 {
     nodeDescriptor node = getNodeDescriptor( (nodeID) _node );
 
- // Serial.println( "D: send structured: Sending reading for " + sensor + "value " + reading );
+  Serial.print( F("D: send structured: Sending reading for "));
+  Serial.print(  sensor );
+  Serial.print( F(" value ") );
+  Serial.println( reading );
 
-  if( currentCodebook != null )
+  if( currentCodebook != null && !isGateway() )
   {
-
-
-    // Check to see if this sensor fits into our current codebook
+    // Check to see if this sensor has a known sensor ID
     int sensorID = getSensorIDforName( sensor );
 
    Serial.print( F("D: Looking up:") );
@@ -471,34 +617,76 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 
     if( sensorID >= 0 )
     {
-        // Looks like we could queue this into the current codebook
+        // Looks like we could queue this since we were able to convert to Sensor ID
+        // queueReading() will return negative number if it couldn't compress it, 
+        // and we'll fall back to the regular sending process. 
 
        Serial.println( F("D: Adding to compressed queue") );
-      queueReading( (sensorType) sensorID, reading );
+       int result = queueReading( (sensorType) sensorID, reading );
 
+       if( result >= 0 ) // success
+          return;
 
-      return;
+        // If queue reading failed, we'll fall back to the old way
     }
   }
 
     long unsigned int now = millis();
-    char messageChar[MAX_MESSAGE_LEN+1];
+
+    // To be maximally efficient with RAM, this code avoids dynamically memory and uses
+    // a fixed, library-wide buffer. Use of the String object requires a lot of wierd mallocing
+
+    
     { 
-      String message = F("R");
-      message += messageSequence;
-      message += F(",");
-      message += node.name;
-      message += F(",");
-      message += now;
-      message += F(",");
-      message += sensor;
-      message += F(",");
-      message += reading;
-      message += ",";
-      message += units;
-      message += ",";
-      message += memo;
-      message.toCharArray( messageChar, MAX_MESSAGE_LEN );
+      byte pos = 0;
+      messageChar[pos++] = 'R';
+      const char comma = ',';
+      pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%d", messageSequence );
+      messageChar[pos++] = comma;
+      pos += nopad_strncpy( messageChar + pos, node.name, MAX_MESSAGE_LEN-pos  );
+      messageChar[pos++] = comma;
+      pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%ld", now );
+      messageChar[pos++] = comma;
+      pos += nopad_strncpy( messageChar + pos, sensor.c_str(), MAX_MESSAGE_LEN-pos );
+      messageChar[pos++] = comma;
+      dtostrf( reading, 0, 3, messageChar + pos );
+      pos += strlen(messageChar + pos );
+      messageChar[pos++] = comma;
+      pos += nopad_strncpy( messageChar + pos, units.c_str(), MAX_MESSAGE_LEN-pos );
+      messageChar[pos++] = comma;
+      pos += nopad_strncpy( messageChar + pos, memo.c_str(), MAX_MESSAGE_LEN-pos );
+
+      // Special case: Append the node ID and RSSI (which is by definition 0)
+
+      if( isGateway() )
+      {
+            messageChar[pos++] = comma; 
+          pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%d", 0 );
+                messageChar[pos++] = comma;
+            pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%d", _node );
+                
+      }
+
+      // pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%ld", (long)int(reading) );
+      // messageChar[pos++] = '.';
+      // pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN-pos, "%0ld", (long)int(reading)*100 );
+      // messageChar[pos++] = comma;
+
+      // String message = F("R");
+      // message += messageSequence;
+      // message += F(",");
+      // message += node.name;
+      // message += F(",");
+      // message += now;
+      // message += F(",");
+      // message += sensor;
+      // message += F(",");
+      // message += reading;
+      // message += ",";
+      // message += units;
+      // message += ",";
+      // message += memo;
+      // message.toCharArray( messageChar, MAX_MESSAGE_LEN );
   } 
 
     Serial.print( F(">>>>") );
@@ -506,9 +694,20 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 
     unsigned int l  = strlen(messageChar);
 
+    // Our contract states that the message must be passed "upstream"
+    // If we are a gateway reporting on itself, we actually need to 
+    // serial print this message, not tranmit it over the radio channel
 
-    sendWithRetry( _gateway, messageChar, l, 3, 40  ); 
-totalLongFormMessagesSent++;
+    if( isGateway() )
+    {
+      Serial.println( messageChar );
+    }
+    else
+    {
+      sendWithRetry( _gateway, messageChar, l, 3, 40  ); 
+    }
+
+    totalLongFormMessagesSent++;
     messageSequence++;
 
 }
@@ -662,3 +861,111 @@ void Sensornet::sleep(byte pinToWakeOn, byte direction, byte bPullup)	// full sl
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+void print_hex(int v, int num_places)
+{
+    int mask=0, n, num_nibbles, digit;
+
+    for (n=1; n<=num_places; n++)
+    {
+        mask = (mask << 1) | 0x0001;
+    }
+    v = v & mask; // truncate v to specified number of places
+
+    num_nibbles = num_places / 4;
+    if ((num_places % 4) != 0)
+    {
+        ++num_nibbles;
+    }
+
+    do
+    {
+        digit = ((v >> (num_nibbles-1) * 4)) & 0x0f;
+        Serial.print(digit, HEX);
+    } while(--num_nibbles);
+
+}
+
+void print_binary(int v, int num_places)
+{
+    int mask=0, n;
+
+    for (n=1; n<=num_places; n++)
+    {
+        mask = (mask << 1) | 0x0001;
+    }
+    v = v & mask;  // truncate v to specified number of places
+
+    while(num_places)
+    {
+
+        if (v & (0x0001 << num_places-1))
+        {
+             Serial.print("1");
+        }
+        else
+        {
+             Serial.print("0");
+        }
+
+        --num_places;
+        if(((num_places%4) == 0) && (num_places != 0))
+        {
+            Serial.print("-");
+        }
+    }
+}
+
+
+void debug_cbuf(char cbuf[], int idx, bool clear) 
+{
+  if (idx == 0) {
+    return;
+  }
+
+  Serial.println( F("D: Dumping buffer"));
+  Serial.print( F("D: ASCII:"));
+  //print printable ASCII
+  for(int x =0; x < idx; x++) {
+    if ((int)cbuf[x] < 32 || (int)cbuf[x] > 126) {
+      // Serial.print(" ");
+      //Serial.print(cbuf[x], DEC);
+    } else {
+//      Serial.print( " ");
+      Serial.print( cbuf[x] );
+    }
+    Serial.print(F("."));
+  }
+  Serial.println();
+Serial.print( F("D: HEX:"));
+  //print HEX
+  for(int x =0; x < idx; x++) {
+    print_hex( cbuf[x], 8);
+    Serial.print(" ");
+  }
+  Serial.println();
+
+  // //print binary
+  // for(int x = 0; x < *idx; x++) {
+  //   print_binary( cbuf[x], 8);
+  //   Serial.print(",");
+  // }
+  // Serial.println();
+
+
+/*
+  Serial.print("size of cbuf: ");
+  Serial.println(sizeof(cbuf), DEC);
+  Serial.print("idx: ");
+  Serial.println(*idx, DEC);
+*/
+
+  if (clear) {
+    memset(cbuf, 0, sizeof(cbuf));
+    idx = 0;
+  }
+}
+
