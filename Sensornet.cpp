@@ -157,7 +157,7 @@ void Sensornet::markRadioPoweredDown()
 
 // size of 50 seems to use about 200 bytes, sugginesting each entry is 4 bytes
 
-#define SENSORNET_SENSOR_LUT_SIZE  50
+#define SENSORNET_SENSOR_LUT_SIZE  50   
 
 sensorDescriptor sensorLookup[SENSORNET_SENSOR_LUT_SIZE];
 
