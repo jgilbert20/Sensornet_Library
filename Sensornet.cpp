@@ -18,7 +18,7 @@ const char *COMMA = ",";
 char messageChar[MAX_MESSAGE_LEN + 1];
 
 // Adds about 40 bytes (13*3) plus tiny overhead?
-byte codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
+int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
 {
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23 },
     { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C },
@@ -278,7 +278,7 @@ nodeDescriptor getNodeDescriptor(nodeID id)
         break;
     case SN_NODE_PROTO4:
         n.name = "Proto4";
-        break;        
+        break;
     case SN_NODE_GATEWAY:
         n.name = "Gateway-AVR";
         break;
@@ -391,11 +391,17 @@ int Sensornet::queueReading( sensorType sensor, float value )
 
 inline const __FlashStringHelper *getSensorName( sensorType t )
 {
+    if ( t >= SENSORNET_SENSOR_LUT_SIZE )
+        return null;
+
     return sensorLookup[t].name;
 }
 
 inline const __FlashStringHelper *getSensorUnits( sensorType t )
 {
+    if ( t >= SENSORNET_SENSOR_LUT_SIZE )
+        return null;
+
     return sensorLookup[t].unit;
 }
 
@@ -504,6 +510,8 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
         Serial.print( i );
         Serial.print( F(" reading=")) ;
         Serial.print( msg->reading[i] );
+        Serial.print( F(" codebook-idx=")) ;
+        Serial.print( currentCodebook[i] );
         Serial.println();
 
         if ( msg->reading[i] == SENSORNET_NOT_POPULATED )
