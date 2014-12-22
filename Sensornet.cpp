@@ -17,8 +17,8 @@ const char* COMMA = ",";
 // A large common buffer for packing and unpacking data
 char messageChar[MAX_MESSAGE_LEN+1];
 
-
-int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
+// Adds about 40 bytes (13*3) plus tiny overhead?
+byte codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
 {
   { 0,1,2,3,4,5,6,7,8,9,10,22,23 },
   { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C },
@@ -56,6 +56,13 @@ unsigned long lastTimeRadioOn = 0;
 
 boolean radioPoweredUp = false;
 
+
+char *Sensornet::borrowMessageBuffer()
+{
+  return messageChar;
+
+
+}
 
 void Sensornet::printTimeStats()
 {
@@ -316,7 +323,7 @@ boolean Sensornet::isGateway()
 void Sensornet::setCodebook( int codebook )
 {
   currentCodebookIndex = codebook;
-  currentCodebook = (sensorType *)codebookRegistry[codebook];
+   currentCodebook = (sensorType *)codebookRegistry[codebook];
   compactedMessageBuffer.codebookID = codebook;
 }
 

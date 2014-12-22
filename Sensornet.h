@@ -78,14 +78,14 @@ class Sensornet
     void sendStructured( String sensor, float reading, String units, String memo );
  	void sendReading( String sensor, float reading, String units );
 	int writeCompressedPacketToSerial( nodeID origin, char *buffer, int len, int rssi );
-int writePacketToSerial( nodeID origin, char *buffer, int len, int rssi );
+	int writePacketToSerial( nodeID origin, char *buffer, int len, int rssi );
 
   	boolean begin();
   	uint8_t writeParam(uint8_t p, uint8_t v);
   	void configureRadio( nodeID node, int network, int gateway, int frequency, char *key );
   	void sleep(byte pinToWakeOn, byte direction, byte bPullup);
   	byte sleepForaWhile (word msecs);
-
+  	char *borrowMessageBuffer();
 	void startLoop();
 	void endLoop();
 	void resetCompression();
