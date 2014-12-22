@@ -60,8 +60,6 @@ boolean radioPoweredUp = false;
 char *Sensornet::borrowMessageBuffer()
 {
     return messageChar;
-
-
 }
 
 void Sensornet::printTimeStats()
@@ -77,8 +75,6 @@ void Sensornet::printTimeStats()
     Serial.print( F( "D: [SN] Total Msg Acked: ")); Serial.println( totalMessagesAcknowledged );
     Serial.print( F( "D: [SN] Total Msg Compacted: ")); Serial.println( totalCompactedMessagesSent );
     Serial.print( F( "D: [SN] Total Msg Longform: ")); Serial.println( totalLongFormMessagesSent );
-
-
 }
 
 void Sensornet::radioSleep()
@@ -271,11 +267,18 @@ nodeDescriptor getNodeDescriptor(nodeID id)
         n.name = "Display-Test";
         break;
 
-
+    case SN_NODE_PROTO1:
+        n.name = "Proto1";
+        break;
     case SN_NODE_PROTO2:
         n.name = "Proto2";
         break;
-
+    case SN_NODE_PROTO3:
+        n.name = "Proto3";
+        break;
+    case SN_NODE_PROTO4:
+        n.name = "Proto4";
+        break;        
     case SN_NODE_GATEWAY:
         n.name = "Gateway-AVR";
         break;
@@ -697,7 +700,7 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
         // message.toCharArray( messageChar, MAX_MESSAGE_LEN );
     }
 
-    Serial.print( F(">>>>") );
+    Serial.print( F("D: >>>>") );
     Serial.println(messageChar);
 
     unsigned int l  = strlen(messageChar);

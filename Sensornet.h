@@ -14,7 +14,13 @@
 typedef enum nodeID
 {
     SN_NODE_GATEWAY = 1,
+    SN_NODE_PROTO1  = 20,
     SN_NODE_PROTO2  = 22,
+    SN_NODE_PROTO3  = 23,
+    SN_NODE_PROTO4  = 24,
+    SN_NODE_OUTSIDE = 25,
+    SN_NODE_ISAROOM = 56,
+    SN_NODE_MAIN    = 30,
     API_TEST        = 101,
     DUST_SENSOR     = 102,
     XMAS_SENSOR     = 103,
