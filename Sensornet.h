@@ -42,10 +42,22 @@ typedef struct compactedMessage
 
 typedef enum sensorType
 {
-    HTU21D_RH     = 1,
-    HTU21D_C      = 2,
-    SENSOR_TEST_A = 22,
-    SENSOR_TEST_B = 23
+    BATT_V              = 0,
+    HTU21D_RH           = 1,
+    HTU21D_C            = 2,
+    SENSOR_TEST_A       = 22,
+    SENSOR_TEST_B       = 23,
+    RADIO_ACK_SIBOOT    = 24,
+    RADIO_ACK_SILAST    = 25,
+    RADIO_ACK_EWMA      = 26,
+    T_AVTX_SIBOOT       = 27,
+    T_AVTX_SILAST       = 28,
+    T_AVTX_EWMA         = 29,
+    T_LOOP_SIBOOT       = 30,
+    T_LOOP_SILAST       = 31,
+    T_DUTYCYCLE_SIBOOT  = 32,
+    T_DUTYCYCLE_SILAST  = 33,
+    TOTAL_LOOPS         = 34
 
 } sensorType;
 
@@ -86,7 +98,8 @@ public:
     void sendReading( String sensor, float reading, String units );
     int writeCompressedPacketToSerial( nodeID origin, char *buffer, int len, int rssi );
     int writePacketToSerial( nodeID origin, char *buffer, int len, int rssi );
-
+    void transmitStatistics();
+    void resetStatisticsCycle();
     boolean begin();
     uint8_t writeParam(uint8_t p, uint8_t v);
     void configureRadio( nodeID node, int network, int gateway, int frequency, char *key );

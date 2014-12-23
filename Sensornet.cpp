@@ -15,15 +15,34 @@ const char *COMMA = ",";
 // A large common buffer for packing and unpacking data
 char messageChar[MAX_MESSAGE_LEN + 1];
 
+const int codebookEntryCount = 4;
+
 // Adds about 40 bytes (13*3) plus tiny overhead?
-int codebookRegistry[][SN_CODEBOOK_MAX_SIZE] =
+int codebookRegistry[codebookEntryCount][SN_CODEBOOK_MAX_SIZE] =
 {
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23 },
     { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C },
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 },
+
+    // Codebook 4 (USED FOR STAT REPORTING)
+    {
+        RADIO_ACK_SIBOOT,
+        RADIO_ACK_SILAST,
+        RADIO_ACK_EWMA,
+        T_AVTX_SIBOOT,
+        T_AVTX_SILAST,
+        T_AVTX_EWMA,
+        T_LOOP_SIBOOT,
+        T_LOOP_SILAST,
+        T_DUTYCYCLE_SIBOOT,
+        T_DUTYCYCLE_SILAST,
+        TOTAL_LOOPS,
+        11,
+        12
+    }
 };
 
-// Each entry is 4 bytes (ptrs are apparently 16bit)
+// Each entry is 4 bytes (avr ptrs are apparently 16bit)
 typedef struct sensorDescriptor
 {
     const __FlashStringHelper *name;
@@ -55,8 +74,26 @@ unsigned long currentLoopStarttime = 0;
 unsigned long currentTimeLastAwoken = 0;
 unsigned long lastTransmitStarted = 0;
 unsigned long lastTimeRadioOn = 0;
+unsigned long lastStatClear = 0;
 
 boolean radioPoweredUp = false;
+
+void Sensornet::resetStatisticsCycle()
+{
+    lastStatClear = millis();
+    statcycle_timeSpentTX                  = 0;
+    statcycle_timeSpentRadioOn             = 0;
+    statcycle_timeSpentLoop                = 0;
+    statcycle_timeSpentSleeping            = 0;
+    statcycle_totalMessagesSent            = 0;
+    statcycle_totalCompactedMessagesSent   = 0;
+    statcycle_totalLongFormMessagesSent    = 0;
+    statcycle_totalMessagesAcknowledged    = 0;
+    statcycle_totalLoops                = 0;
+
+
+}
+
 
 
 char *Sensornet::borrowMessageBuffer()
@@ -68,11 +105,9 @@ void Sensornet::printTimeStats()
 {
     Serial.print( F( "D: [SN] Total Loops: ")); Serial.println( totalLoops );
     Serial.print( F( "D: [SN] TX Time: ")); Serial.println( timeSpentTX );
-    if( totalLoops != 0 )
-        Serial.print( F( "D: [SN] TX Time/L: ")); Serial.println( timeSpentTX / totalLoops  );
+    Serial.print( F( "D: [SN] TX Time/L: ")); Serial.println( totalLoops > 0 ? timeSpentTX / totalLoops : 0  );
     Serial.print( F( "D: [SN] Loop Time: ")); Serial.println( timeSpentLoop );
-    if( totalLoops != 0 )
-        Serial.print( F( "D: [SN] Loop Time/L: ")); Serial.println( timeSpentLoop / totalLoops );
+    Serial.print( F( "D: [SN] Loop Time/L: ")); Serial.println( totalLoops > 0 ? timeSpentLoop / totalLoops : 0 );
     Serial.print( F( "D: [SN] Sleep Time: ")); Serial.println( timeSpentSleeping );
     Serial.print( F( "D: [SN] Millis(): ")); Serial.println( millis() );
     Serial.print( F( "D: [SN] Total Msg Sent (all types): ")); Serial.println( totalMessagesSent );
@@ -93,6 +128,11 @@ void Sensornet::systemHibernate( word t )
     Serial.flush();
     sleepForaWhile( t );
 }
+
+// A "loop" is purely the caller's convention. It can include or not include
+// transmission or sleep depending on the caller's needs. None of the
+// statitics are reported as an average of loop time or depend on it in any
+// way, however loop time itself is recorded and transmitted.
 
 void Sensornet::startLoop()
 {
@@ -310,7 +350,6 @@ void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequ
 
 boolean Sensornet::isGateway()
 {
-
     return _isGateway;
 }
 
@@ -322,6 +361,72 @@ void Sensornet::setCodebook( int codebook )
 }
 
 
+// unsigned long timeSpentTX                  = 0;
+// unsigned long timeSpentRadioOn             = 0;
+// unsigned long timeSpentLoop                = 0;
+// unsigned long timeSpentSleeping            = 0;
+// unsigned long totalMessagesSent            = 0;
+// unsigned long totalCompactedMessagesSent   = 0;
+// unsigned long totalLongFormMessagesSent    = 0;
+// unsigned long totalMessagesAcknowledged    = 0;
+// unsigned long totalLoops                   = 0;
+
+
+
+void Sensornet::transmitStatistics()
+{
+    Serial.println( F("D: [SN] Sending our transmission stats...") );
+
+    newQuanta();
+    setCodebook(3);
+
+    // RADIO_ACK_SIBOOT and RADIO_ACK_SILAST track the acknowledgement rate.
+
+    if ( totalMessagesSent > 0 )
+        queueReading( RADIO_ACK_SIBOOT, 100.0 * totalMessagesAcknowledged / totalMessagesSent );
+    if ( statcycle_totalMessagesSent > 0 )
+        queueReading( RADIO_ACK_SILAST, 100.0 * statcycle_totalMessagesAcknowledged / statcycle_totalMessagesSent);
+
+
+    // T_AVTX_SIBOOT and T_AVTX_SILAST both track the average amount of time
+    // it takes to send a packet.  This value can fluxuate based on the
+    // average time for the channel to clear and the number of transmissions
+    // needed before an ack is received.
+
+    if ( totalMessagesSent >  0 )
+        queueReading( T_AVTX_SIBOOT, timeSpentTX / totalMessagesSent );
+    if ( statcycle_totalMessagesSent > 0 )
+        queueReading( T_AVTX_SILAST, statcycle_timeSpentTX / statcycle_totalMessagesSent );
+
+    // T_LOOP_* tracks the amount of time the calling code declared it was in
+    // a "loop". The semantics of this could vary based on the calling code.
+
+    queueReading( T_LOOP_SIBOOT, timeSpentLoop );
+    queueReading( T_LOOP_SILAST, statcycle_timeSpentLoop );
+
+    unsigned long now = millis();
+    unsigned long timeSinceStatClear = now - lastStatClear;
+
+    // T_DUTYCYCLE_SIBOOT: The following calculation is intended to reflect
+    // the % of time the node is awake vs. in power-down mode. Accuracy of
+    // calculation depends on the stability of millis(), which is corrected by
+    // the sleep operation to compensate for the duration of time powered
+    // down.
+    //
+    // NB: This calculation is NOT contiguous with prior versions of the
+    // library as it uses millis() and its denominator is the total elapsed
+    // time (as opposed to the total time sleeping, which was incorrect.)
+
+    queueReading( T_DUTYCYCLE_SIBOOT, (1.0f) * ((now - timeSpentSleeping) / now ));
+    queueReading( T_DUTYCYCLE_SILAST, (1.0f) * ((timeSinceStatClear - timeSpentSleeping) / timeSinceStatClear ));
+
+    flushQueue();
+}
+
+
+#define SENSORNET_COMPACTED_MAGIC 'C'
+#define SENSORNET_LONGFORM_MAGIC 'R'
+
 // Clears out the current in progress measurements (must always be reset) -
 // does not specifically clear out the codebook itself
 
@@ -331,9 +436,8 @@ void Sensornet::newQuanta()
     for ( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
         compactedMessageBuffer.reading[i] = SENSORNET_NOT_POPULATED;
 
-    compactedMessageBuffer.type = 'C';
-    compactedMessageBuffer.sequence = messageSequence;
-
+    compactedMessageBuffer.type      = SENSORNET_COMPACTED_MAGIC;
+    compactedMessageBuffer.sequence  = messageSequence;
     compactedMessageBuffer.timestamp = quantaStartTime;
 
     compressionSterile = true;
@@ -415,8 +519,6 @@ int Sensornet::getSensorIDforName( String n )
     return -1;
 }
 
-#define SENSORNET_COMPACTED_MAGIC 'C'
-#define SENSORNET_LONGFORM_MAGIC 'R'
 
 // Translates a packet into output to the serial line in a common format The
 // sensornet output logging format is a CSV delimited sequence of fields C or
@@ -480,6 +582,10 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
 
     setCodebook( msg->codebookID );
     Serial.print( F("D: Compressed message on codebook: "));
+
+    if( msg->codebookID >= codebookEntryCount )
+        Serial.print( F("D: !!! WARNING WARNING !!! - Unknown Codebook in use!"));
+
     Serial.println( msg->codebookID, DEC );
 
     for ( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
@@ -625,15 +731,20 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
             // couldn't compress it, and we'll fall back to the regular
             // sending process.
 
-            Serial.println( F("D: Adding to compressed queue") );
+            Serial.println( F("D: Attempting add to compressed queue") );
             int result = queueReading( (sensorType) sensorID, reading );
 
             if ( result >= 0 ) // success
+            {
+                Serial.println( F("D:   -- Added to queue") );
                 return;
+            }
 
             // If queue reading failed, we'll fall back to the old way
         }
     }
+
+    Serial.println( F("D: Using longform method") );
 
     long unsigned int now = millis();
 
