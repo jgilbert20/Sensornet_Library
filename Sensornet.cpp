@@ -40,6 +40,17 @@ unsigned long totalLongFormMessagesSent    = 0;
 unsigned long totalMessagesAcknowledged    = 0;
 unsigned long totalLoops                   = 0;
 
+unsigned long statcycle_timeSpentTX                  = 0;
+unsigned long statcycle_timeSpentRadioOn             = 0;
+unsigned long statcycle_timeSpentLoop                = 0;
+unsigned long statcycle_timeSpentSleeping            = 0;
+unsigned long statcycle_totalMessagesSent            = 0;
+unsigned long statcycle_totalCompactedMessagesSent   = 0;
+unsigned long statcycle_totalLongFormMessagesSent    = 0;
+unsigned long statcycle_totalMessagesAcknowledged    = 0;
+unsigned long statcycle_totalLoops                   = 0;
+
+
 unsigned long currentLoopStarttime = 0;
 unsigned long currentTimeLastAwoken = 0;
 unsigned long lastTransmitStarted = 0;
@@ -97,6 +108,8 @@ void Sensornet::endLoop()
 
     timeSpentLoop += millis() - currentLoopStarttime;
     totalLoops++;
+    statcycle_timeSpentLoop += millis() - currentLoopStarttime;
+    statcycle_totalLoops++;
     currentLoopStarttime = 0;
 }
 
@@ -117,6 +130,7 @@ void Sensornet::markRadioTXEnd()
         return;
 
     timeSpentTX += millis() - lastTransmitStarted;
+    statcycle_timeSpentTX += millis() - lastTransmitStarted;
     lastTransmitStarted = 0;
 }
 
@@ -134,15 +148,21 @@ void Sensornet::markRadioPoweredDown()
     if ( radioPoweredUp)
     {
         timeSpentRadioOn = millis() - lastTimeRadioOn;
+        statcycle_timeSpentRadioOn = millis() - lastTimeRadioOn;
         lastTimeRadioOn = 0;
     }
 
     radioPoweredUp = false;
 }
 
-// size of 50 seems to use about 200 bytes, sugginesting each entry is 4 bytes
+// Sensornet name and unit lookup table. Array size of 50 seems to use about
+// 200 bytes, sugginesting each entry is 4 bytes. This is actually a dominate
+// memory use of the library. Fortunatly, this table can be ommited if none of
+// the longform sensor reading syntaxes are used. If your code never calls the
+// function that takes a sensor name as a string, you can avoid this entire
+// table (and it could be potentially optimized out -- to check)
 
-#define SENSORNET_SENSOR_LUT_SIZE  45
+#define SENSORNET_SENSOR_LUT_SIZE  45   // Be careful to make this exact
 
 sensorDescriptor sensorLookup[SENSORNET_SENSOR_LUT_SIZE];
 
@@ -382,7 +402,6 @@ int Sensornet::getSensorIDforName( const char *n )
     }
 
     return -1;
-
 }
 
 int Sensornet::getSensorIDforName( String n )
@@ -394,10 +413,10 @@ int Sensornet::getSensorIDforName( String n )
     }
 
     return -1;
-
 }
 
 #define SENSORNET_COMPACTED_MAGIC 'C'
+#define SENSORNET_LONGFORM_MAGIC 'R'
 
 // Translates a packet into output to the serial line in a common format The
 // sensornet output logging format is a CSV delimited sequence of fields C or
@@ -416,14 +435,13 @@ int Sensornet::writePacketToSerial( nodeID origin, char *buffer, int len, int rs
     if ( msgType == SENSORNET_COMPACTED_MAGIC )
     {
         debug_cbuf( buffer, len, false );
-
         writeCompressedPacketToSerial( origin, buffer, len, rssi );
         return 0;
     }
 
     // If its a longform packet, its already in the right format, just echo it
 
-    if ( msgType == 'R' )
+    if ( msgType == SENSORNET_LONGFORM_MAGIC )
     {
         Serial.print( buffer );
         Serial.print( COMMA );
@@ -520,9 +538,13 @@ bool Sensornet::sendWithRetry(byte toAddress, const void *buffer, byte bufferSiz
     boolean r = radio.sendWithRetry( _gateway, buffer, bufferSize, retries, retryWaitTime  );
     markRadioTXEnd();
     if ( r )
+    {
         totalMessagesAcknowledged++;
+        statcycle_totalMessagesAcknowledged++;
+    }
     messageSequence++;
     totalMessagesSent++;
+    statcycle_totalMessagesSent++;
 }
 
 // Flushes out the current packet, and resets the compression engine.
@@ -535,6 +557,7 @@ void Sensornet::flushQueue()
         debug_cbuf( (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), false );
         sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 40  );
         totalCompactedMessagesSent++;
+        statcycle_totalCompactedMessagesSent++;
     }
     resetCompression();
 
@@ -691,6 +714,7 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
     }
 
     totalLongFormMessagesSent++;
+    statcycle_totalLongFormMessagesSent++;
     messageSequence++;
 
 }
@@ -800,6 +824,7 @@ byte Sensornet::sleepForaWhile (word msecs)
 #endif
 
     timeSpentSleeping += msecs - msleft;
+    statcycle_timeSpentSleeping += msecs - msleft;
 
     return ok; // true if we lost approx the time planned
 }
