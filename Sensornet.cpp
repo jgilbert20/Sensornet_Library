@@ -6,15 +6,19 @@
 #define SENSORNET_NOT_POPULATED -999999.99
 
 // Enables very verbose logging
-#define SENSORNET_VERBOSE_DEBUG 1
+#define SENSORNET_VERBOSE_DEBUG 0
 
-//#define debugVerbose( x ) ;
-
-// #define debugVerboseln( x ) ;
-
+#if SENSORNET_VERBOSE_DEBUG > 0
 
 #define debugVerbose( x ) Serial.print(x);
 #define debugVerboseln( x ) Serial.println(x);
+
+#else
+
+#define debugVerbose( x ) ;
+#define debugVerboseln( x ) ;
+
+#endif
 
 unsigned long quantaStartTime;
 int currentCodebookIndex;
