@@ -5,6 +5,17 @@
 
 #define SENSORNET_NOT_POPULATED -999999.99
 
+// Enables very verbose logging
+#define SENSORNET_VERBOSE_DEBUG 1
+
+//#define debugVerbose( x ) ;
+
+// #define debugVerboseln( x ) ;
+
+
+#define debugVerbose( x ) Serial.print(x);
+#define debugVerboseln( x ) Serial.println(x);
+
 unsigned long quantaStartTime;
 int currentCodebookIndex;
 sensorType *currentCodebook;
@@ -160,7 +171,7 @@ void Sensornet::systemHibernate( word t )
 
 void Sensornet::startLoop()
 {
-    Serial.println( F("D: --- MARK LOOP START"));
+    debugVerboseln( F("D: --- MARK LOOP START"));
     if ( currentLoopStarttime != 0 )
         return;
     currentLoopStarttime = millis();
@@ -168,7 +179,7 @@ void Sensornet::startLoop()
 
 void Sensornet::endLoop()
 {
-    Serial.println( F("D: --- MARK LOOP END"));
+    debugVerboseln( F("D: --- MARK LOOP END"));
 
     timeSpentLoop += millis() - currentLoopStarttime;
     totalLoops++;
@@ -180,7 +191,7 @@ void Sensornet::endLoop()
 
 void Sensornet::markRadioTXStart()
 {
-    Serial.println( F("D: --- MARK RADIO TX START"));
+    debugVerboseln( F("D: --- MARK RADIO TX START"));
     if ( lastTransmitStarted != 0 )
         return;
     markRadioPoweredUp();
@@ -189,7 +200,7 @@ void Sensornet::markRadioTXStart()
 
 void Sensornet::markRadioTXEnd()
 {
-    Serial.println( F("D: --- MARK RADIO TX END"));
+    debugVerboseln( F("D: --- MARK RADIO TX END"));
     if ( lastTransmitStarted == 0 )
         return;
 
@@ -376,8 +387,8 @@ void Sensornet::setCodebook( int codebook )
     currentCodebookIndex = codebook;
     currentCodebook = (sensorType *)codebookRegistry[codebook];
     compactedMessageBuffer.codebookID = codebook;
-    Serial.print( F("D: Codebook set to :"));
-    Serial.println( codebook );
+    debugVerbose( F("D: Codebook set to :"));
+    debugVerboseln( codebook  );
 }
 
 
@@ -395,7 +406,7 @@ void Sensornet::setCodebook( int codebook )
 
 void Sensornet::transmitStatistics()
 {
-    Serial.println( F("D: [SN] Sending our transmission stats...") );
+    debugVerboseln( F("D: [SN] Sending our transmission stats...") );
 
     newQuanta();
     setCodebook(3);
@@ -438,12 +449,12 @@ void Sensornet::transmitStatistics()
     // down.posed to the total time sleeping, which was incorrect.)
 
 
-    Serial.print( F("D: Duty cycle calculation=")); Serial.println( (1.0 * now - timeSpentSleeping) / (now * 1.0)   );
-    Serial.print( F("D: Duty cycle now=")); Serial.println( now );
-    Serial.print( F("D: Duty cycle timeSleep=")); Serial.println( timeSpentSleeping );
+    debugVerbose( F("D: Duty cycle calculation=")); debugVerboseln( (1.0 * now - timeSpentSleeping) / (now * 1.0)   );
+    debugVerbose( F("D: Duty cycle now=")); debugVerboseln( now );
+    debugVerbose( F("D: Duty cycle timeSleep=")); debugVerboseln( timeSpentSleeping );
 
     queueReading( T_DUTYCYCLE_SIBOOT, (1.0 * now - timeSpentSleeping) / (now * 1.0) );
-    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear * 1.0 - timeSpentSleeping * 1.0) / 1.0 / 1.0 * timeSinceStatClear );
+    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear * 1.0 - timeSpentSleeping * 1.0) / timeSinceStatClear );
 
     flushQueue();
 }
@@ -604,7 +615,8 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
         return -1;
 
     setCodebook( msg->codebookID );
-    Serial.print( F("D: Compressed message on codebook: "));
+    debugVerbose( F("D: Compressed message on codebook: "));
+    debugVerboseln( msg->codebookID );
 
     if ( msg->codebookID >= codebookEntryCount )
         Serial.print( F("D: !!! WARNING WARNING !!! - Unknown Codebook in use!"));
@@ -612,13 +624,13 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
 
     for ( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
     {
-        Serial.print( F("D:  Checking codebook position="));
-        Serial.print( i );
-        Serial.print( F(" reading=")) ;
-        Serial.print( msg->reading[i] );
-        Serial.print( F(" codebook-idx=")) ;
-        Serial.print( currentCodebook[i] );
-        Serial.println();
+        debugVerbose( F("D:  Checking codebook position="));
+        debugVerbose( i );
+        debugVerbose( F(" reading=")) ;
+        debugVerbose( msg->reading[i] );
+        debugVerbose( F(" codebook-idx=")) ;
+        debugVerbose( currentCodebook[i] );
+        debugVerboseln();
 
         if ( msg->reading[i] == SENSORNET_NOT_POPULATED )
             continue;
@@ -715,11 +727,6 @@ int nopad_strncpy( char *dest, const char *src, int bufsize )
 
 }
 
-
-
-
-
-
 // Send structured transmits a sensor reading "upstream" based on a fixed set
 // of rules designed to bring the reading in a consistent way to the gateway.
 // It tries to be as effiecent as possible. If the calling node is remote, the
@@ -743,21 +750,21 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 {
     const __FlashStringHelper *nodeNameFSH = getNodeNameAsFSH( (nodeID) _node );
 
-    Serial.print( F("D: send structured: Sending reading sensor=["));
-    Serial.print( sensor );
-    Serial.print( F("] value=") );
-    Serial.println( reading );
+    debugVerbose( F("D: send structured: Sending reading sensor=["));
+    debugVerbose( sensor );
+    debugVerbose( F("] value=") );
+    debugVerboseln( reading );
 
     if ( currentCodebook != null && !isGateway() )
     {
         // Check to see if this sensor has a known sensor ID
         int sensorID = getSensorIDforName( sensor );
 
-        Serial.print( F("D: Looking up:") );
-        Serial.print( sensor );
-        Serial.print( F("Got:") );
-        Serial.print( sensorID );
-        Serial.println();
+        debugVerbose( F("D: Looking up:") );
+        debugVerbose( sensor );
+        debugVerbose( F("Got:") );
+        debugVerbose( sensorID );
+        debugVerboseln();
 
         if ( sensorID >= 0 )
         {
@@ -779,7 +786,7 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
         }
     }
 
-    Serial.println( F("D: Using longform method") );
+    debugVerbose( F("D: Using longform method") );
 
     long unsigned int now = millis();
 
