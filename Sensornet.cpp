@@ -391,7 +391,11 @@ void Sensornet::transmitStatistics()
     // T_AVTX_SIBOOT and T_AVTX_SILAST both track the average amount of time
     // it takes to send a packet.  This value can fluxuate based on the
     // average time for the channel to clear and the number of transmissions
-    // needed before an ack is received.
+    // needed before an ack is receive
+    //
+    // NB: This calculation is NOT contiguous with prior versions of the
+    // library as it uses millis() and its denominator is the total elapsed
+    // time (as opd.
 
     if ( totalMessagesSent >  0 )
         queueReading( T_AVTX_SIBOOT, timeSpentTX / totalMessagesSent );
@@ -411,14 +415,15 @@ void Sensornet::transmitStatistics()
     // the % of time the node is awake vs. in power-down mode. Accuracy of
     // calculation depends on the stability of millis(), which is corrected by
     // the sleep operation to compensate for the duration of time powered
-    // down.
-    //
-    // NB: This calculation is NOT contiguous with prior versions of the
-    // library as it uses millis() and its denominator is the total elapsed
-    // time (as opposed to the total time sleeping, which was incorrect.)
+    // down.posed to the total time sleeping, which was incorrect.)
 
-    queueReading( T_DUTYCYCLE_SIBOOT, (1.0f) * ((now - timeSpentSleeping) / now ));
-    queueReading( T_DUTYCYCLE_SILAST, (1.0f) * ((timeSinceStatClear - timeSpentSleeping) / timeSinceStatClear ));
+
+    Serial.print( F("D: Duty cycle calculation=")); Serial.println( (1.0 * now - timeSpentSleeping) / (now * 1.0)   );
+    Serial.print( F("D: Duty cycle now=")); Serial.println( now );
+    Serial.print( F("D: Duty cycle timeSleep=")); Serial.println( timeSpentSleeping );
+
+    queueReading( T_DUTYCYCLE_SIBOOT, (1.0 * now - timeSpentSleeping) / (now * 1.0) );
+    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear*1.0 - timeSpentSleeping*1.0) / 1.0 / 1.0 * timeSinceStatClear );
 
     flushQueue();
 }
@@ -464,7 +469,6 @@ int findIndexForSensor( sensorType *codebook, sensorType query )
 
     return -1;
 }
-
 
 int Sensornet::queueReading( sensorType sensor, float value )
 {
@@ -583,7 +587,7 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
     setCodebook( msg->codebookID );
     Serial.print( F("D: Compressed message on codebook: "));
 
-    if( msg->codebookID >= codebookEntryCount )
+    if ( msg->codebookID >= codebookEntryCount )
         Serial.print( F("D: !!! WARNING WARNING !!! - Unknown Codebook in use!"));
 
     Serial.println( msg->codebookID, DEC );
@@ -662,6 +666,7 @@ void Sensornet::flushQueue()
     {
         debug_cbuf( (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), false );
         sendWithRetry( _gateway, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 3, 40  );
+        writeCompressedPacketToSerial( (nodeID)_node, (char *)&compactedMessageBuffer,  sizeof(compactedMessageBuffer), 0 );
         totalCompactedMessagesSent++;
         statcycle_totalCompactedMessagesSent++;
     }
