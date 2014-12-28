@@ -13,19 +13,22 @@
 
 typedef enum nodeID
 {
-    SN_NODE_GATEWAY = 1,
-    SN_NODE_PROTO1  = 20,
-    SN_NODE_PROTO2  = 22,
-    SN_NODE_PROTO3  = 23,
-    SN_NODE_PROTO4  = 24,
-    SN_NODE_OUTSIDE = 25,
-    SN_NODE_ISAROOM = 56,
-    SN_NODE_BREAD1  = 30,
-    SN_NODE_BREAD2  = 31,
-    API_TEST        = 101,
-    DUST_SENSOR     = 102,
-    XMAS_SENSOR     = 103,
-    DISPLAY_TEST    = 104
+    SN_NODE_GATEWAY  = 1,
+    SN_NODE_POWERMON = 10,
+    SN_NODE_OUTSIDE  = 11,
+
+    SN_NODE_PROTO1   = 20,
+    SN_NODE_PROTO2   = 22,
+    SN_NODE_PROTO3   = 23,
+    SN_NODE_PROTO4   = 24,
+    SN_NODE_BREAD1   = 30,
+    SN_NODE_BREAD2   = 31,
+    SN_NODE_ISAROOM  = 56,
+
+    API_TEST         = 101,
+    DUST_SENSOR      = 102,
+    XMAS_SENSOR      = 103,
+    DISPLAY_TEST     = 104
 } nodeID;
 
 #define SN_CODEBOOK_MAX_SIZE 13
@@ -45,6 +48,25 @@ typedef enum sensorType
     BATT_V              = 0,
     HTU21D_RH           = 1,
     HTU21D_C            = 2,
+    TSL2591_LUX   = 3,
+    TSL2591_FULL  = 4,
+    TSL2591_IR    = 5,
+    LUX_FLT       = 6,
+    LUX_FLT_BROAD  = 7,
+    LUX_FLT_INFRA =  8,
+    DALLAS        =  9,
+    RADIO_BG_RSSI =  10,
+    MCP9808       =  11,
+    BMP_TEMP      = 12,
+    BMP_PRESSURE  = 13,
+    CURRENT_A     = 14,
+    CURRENT_B     = 15,
+    AM2315_TEMP   = 16,
+    AM2315_RH     = 17,
+    SHT15_TEMP    = 18,
+    SHT15_RH      = 19,
+    THERM0_TEMP   = 20,
+    THERM1_TEMP   = 21,
     SENSOR_TEST_A       = 22,
     SENSOR_TEST_B       = 23,
     RADIO_ACK_SIBOOT    = 24,
@@ -82,7 +104,7 @@ class Sensornet
 {
 public:
     unsigned long messageSequence;
-    nodeDescriptor thisNodeDesc;
+   // nodeDescriptor thisNodeDesc;
 
     Sensornet(void);
 

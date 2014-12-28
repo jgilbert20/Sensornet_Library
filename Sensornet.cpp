@@ -15,16 +15,20 @@ const char *COMMA = ",";
 // A large common buffer for packing and unpacking data
 char messageChar[MAX_MESSAGE_LEN + 1];
 
-const int codebookEntryCount = 4;
+const int codebookEntryCount = 5;
 
 // Adds about 40 bytes (13*3) plus tiny overhead?
 int codebookRegistry[codebookEntryCount][SN_CODEBOOK_MAX_SIZE] =
 {
+    // Codebook = 0
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23 },
+    // Codebook = 1
     { SENSOR_TEST_A, SENSOR_TEST_B, HTU21D_RH, HTU21D_C },
+
+    // Codebook 2 (Default codebook)
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 },
 
-    // Codebook 4 (USED FOR STAT REPORTING)
+    // Codebook 3 (USED FOR STAT REPORTING)
     {
         RADIO_ACK_SIBOOT,
         RADIO_ACK_SILAST,
@@ -37,8 +41,28 @@ int codebookRegistry[codebookEntryCount][SN_CODEBOOK_MAX_SIZE] =
         T_DUTYCYCLE_SIBOOT,
         T_DUTYCYCLE_SILAST,
         TOTAL_LOOPS,
-        11,
-        12
+        11, // currently unused
+        12  // currently unused
+    },
+
+    // Codebook 4 (Used for auxiliary powered nodes like the power, gas, dust sensors, etc)
+    {
+        CURRENT_A,
+        CURRENT_B,
+        MCP9808,
+        RADIO_BG_RSSI,
+        DALLAS,
+        HTU21D_RH,
+        HTU21D_C,
+        AM2315_TEMP,
+        AM2315_RH,
+        10,  // unused
+        11,  // unused
+        12   // unused
+
+
+
+
     }
 };
 
@@ -195,12 +219,15 @@ void Sensornet::markRadioPoweredDown()
     radioPoweredUp = false;
 }
 
-// Sensornet name and unit lookup table. Array size of 50 seems to use about
-// 200 bytes, sugginesting each entry is 4 bytes. This is actually a dominate
-// memory use of the library. Fortunatly, this table can be ommited if none of
-// the longform sensor reading syntaxes are used. If your code never calls the
-// function that takes a sensor name as a string, you can avoid this entire
-// table (and it could be potentially optimized out -- to check)
+// Sensornet name and unit lookup table.
+//
+// MEMORY NOTE: Array size of 50 seems to use about 200 bytes, because each
+// entry is 4 bytes. This is actually a dominent user  of memory within the
+// library. Fortunatly, this table can be ommited if none of the longform
+// sensor reading syntaxes are used. If your code never calls a function that
+// takes a sensor name as a string, or has to "decode" a compressed packet
+// back into its string equivilent, you can avoid this entire table (and it
+// could be potentially optimized out -- to check)
 
 #define SENSORNET_SENSOR_LUT_SIZE  45   // Be careful to make this exact
 
@@ -259,69 +286,58 @@ void populateSL()
     setSensorMap( 42, F("SI1145-Vis"),                    F("raw")       );
     setSensorMap( 43, F("SI1145-IR"),                     F("raw")       );
     setSensorMap( 44, F("SI1145-UvIndex"),                F("index")     );
-
+    // Note: If adding to this list, be sure to update the max index constant as well
 };
 
 Sensornet::Sensornet()
 {
-    ;
     currentCodebook  = null;
     populateSL();
 }
 
-nodeDescriptor getNodeDescriptor(nodeID id)
+
+
+const __FlashStringHelper *getNodeNameAsFSH(nodeID id)
 {
 
     nodeDescriptor n;
 
-    switch ( id )
-    {
-    case API_TEST:
-        n.name = "API-Test";
-        break;
 
-    case DUST_SENSOR:
-        n.name = "Dust-Sensor";
-        break;
+    // IMPORTANT MEMORY CONSUMPTION NOTE: For reasons I've read, switch
+    // statements consume way more static memory than you'd expect. As of this
+    // writing, a version of the gateway code with a block of IF statements
+    // compiles with 676 bytes of free memory. Using the if statement left 432
+    // bytes of free memory. Sources on the web suggest that switch statements
+    // create a large jump table on the stack.
 
-    case XMAS_SENSOR:
-        n.name = "Xmas-Sensor";
-        break;
+    if ( id == SN_NODE_GATEWAY )
+        return ( F("Gateway-AVR") );
+    if ( id == SN_NODE_POWERMON )
+        return ( F("PowerMon") );
+    if ( id == SN_NODE_OUTSIDE )
+        return ( F("Outside") );
+    if ( id == API_TEST )
+        return ( F("API-Test") );
+    if ( id == DUST_SENSOR )
+        return ( F("Dust-Sensor") );
+    if ( id == XMAS_SENSOR )
+        return ( F("Xmas-Sensor") );
+    if ( id == DISPLAY_TEST )
+        return ( F("Display-Test") );
+    if ( id == SN_NODE_PROTO1 )
+        return ( F("Proto1") );
+    if ( id == SN_NODE_PROTO2 )
+        return ( F("Proto2") );
+    if ( id == SN_NODE_PROTO3 )
+        return ( F("Proto3") );
+    if ( id == SN_NODE_PROTO4 )
+        return ( F("Proto4") );
+    if ( id == SN_NODE_BREAD1 )
+        return ( F("Bread1") );
+    if ( id == SN_NODE_BREAD2 )
+        return ( F("Bread2") );
 
-    case DISPLAY_TEST:
-        n.name = "Display-Test";
-        break;
-
-    case SN_NODE_PROTO1:
-        n.name = "Proto1";
-        break;
-    case SN_NODE_PROTO2:
-        n.name = "Proto2";
-        break;
-    case SN_NODE_PROTO3:
-        n.name = "Proto3";
-        break;
-    case SN_NODE_PROTO4:
-        n.name = "Proto4";
-        break;
-
-    case SN_NODE_BREAD1:
-        n.name = "Bread1";
-        break;
-    case SN_NODE_BREAD2:
-        n.name = "Bread2";
-        break;
-    case SN_NODE_GATEWAY:
-        n.name = "Gateway-AVR";
-        break;
-
-    default:
-        n.name = "UNKNOWN";
-        break;
-        ;
-
-    }
-    return n;
+    return (F("UNKNOWN"));
 }
 
 
@@ -329,7 +345,7 @@ nodeDescriptor getNodeDescriptor(nodeID id)
 
 void Sensornet::configureRadio( nodeID node, int network, int gateway, int frequency, char *key )
 {
-    thisNodeDesc = getNodeDescriptor( node );
+    // thisNodeDesc = getNodeDescriptor( node );
 
     _node = (int)node;
     _network = network;
@@ -355,9 +371,13 @@ boolean Sensornet::isGateway()
 
 void Sensornet::setCodebook( int codebook )
 {
+    if ( codebook > codebookEntryCount - 1 )
+        return;
     currentCodebookIndex = codebook;
     currentCodebook = (sensorType *)codebookRegistry[codebook];
     compactedMessageBuffer.codebookID = codebook;
+    Serial.print( F("D: Codebook set to :"));
+    Serial.println( codebook );
 }
 
 
@@ -423,11 +443,10 @@ void Sensornet::transmitStatistics()
     Serial.print( F("D: Duty cycle timeSleep=")); Serial.println( timeSpentSleeping );
 
     queueReading( T_DUTYCYCLE_SIBOOT, (1.0 * now - timeSpentSleeping) / (now * 1.0) );
-    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear*1.0 - timeSpentSleeping*1.0) / 1.0 / 1.0 * timeSinceStatClear );
+    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear * 1.0 - timeSpentSleeping * 1.0) / 1.0 / 1.0 * timeSinceStatClear );
 
     flushQueue();
 }
-
 
 #define SENSORNET_COMPACTED_MAGIC 'C'
 #define SENSORNET_LONGFORM_MAGIC 'R'
@@ -576,7 +595,7 @@ int Sensornet::writePacketToSerial( nodeID origin, char *buffer, int len, int rs
 int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int len, int rssi )
 {
     compactedMessage *msg = (compactedMessage *)buffer;
-    nodeDescriptor sender = getNodeDescriptor( origin );
+    const __FlashStringHelper *sender = getNodeNameAsFSH( origin );
 
     // if( buffer == null )
     //     return -1;
@@ -590,7 +609,6 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
     if ( msg->codebookID >= codebookEntryCount )
         Serial.print( F("D: !!! WARNING WARNING !!! - Unknown Codebook in use!"));
 
-    Serial.println( msg->codebookID, DEC );
 
     for ( int i = 0 ; i < SN_CODEBOOK_MAX_SIZE ; i++ )
     {
@@ -614,7 +632,7 @@ int Sensornet::writeCompressedPacketToSerial( nodeID origin, char *buffer, int l
         Serial.print( F("-cbi") );
         Serial.print( currentCodebook[i] );
         Serial.print( COMMA );
-        Serial.print( sender.name );
+        Serial.print( sender );
         Serial.print( COMMA );
         Serial.print( msg->timestamp );
         Serial.print( COMMA );
@@ -697,6 +715,11 @@ int nopad_strncpy( char *dest, const char *src, int bufsize )
 
 }
 
+
+
+
+
+
 // Send structured transmits a sensor reading "upstream" based on a fixed set
 // of rules designed to bring the reading in a consistent way to the gateway.
 // It tries to be as effiecent as possible. If the calling node is remote, the
@@ -709,13 +732,20 @@ int nopad_strncpy( char *dest, const char *src, int bufsize )
 // is performed, and instead the reading is relayed to the serial port in
 // SNCLF syntax.
 
+// Note: Use of these String() blocks is intended to get around not knowing if
+// we are being passed a flash string constant or a stack allocated constant.
+// however, this means that mallocs() are being used pretty much every time
+// send structured is called. If free memory is lower than 500 bytes, even a
+// relatively modest malloc is likely to fail, with the symptom being that a null
+// value is shown for the sensor name, or units, or memo.
+
 void Sensornet::sendStructured( String sensor, float reading, String units, String memo )
 {
-    nodeDescriptor node = getNodeDescriptor( (nodeID) _node );
+    const __FlashStringHelper *nodeNameFSH = getNodeNameAsFSH( (nodeID) _node );
 
-    Serial.print( F("D: send structured: Sending reading for "));
+    Serial.print( F("D: send structured: Sending reading sensor=["));
     Serial.print( sensor );
-    Serial.print( F(" value ") );
+    Serial.print( F("] value=") );
     Serial.println( reading );
 
     if ( currentCodebook != null && !isGateway() )
@@ -763,7 +793,8 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
         const char comma = ',';
         pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, "%d", messageSequence );
         messageChar[pos++] = comma;
-        pos += nopad_strncpy( messageChar + pos, node.name, MAX_MESSAGE_LEN - pos  );
+        strncpy_P( messageChar + pos, (const char *)nodeNameFSH, MAX_MESSAGE_LEN - pos  );
+        pos += strlen_P( (const char *)nodeNameFSH );
         messageChar[pos++] = comma;
         pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, "%ld", now );
         messageChar[pos++] = comma;
@@ -782,10 +813,11 @@ void Sensornet::sendStructured( String sensor, float reading, String units, Stri
 
         if ( isGateway() )
         {
+            const char *D_STR = "%d";
             messageChar[pos++] = comma;
-            pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, "%d", 0 );
+            pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, D_STR, 0 );
             messageChar[pos++] = comma;
-            pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, "%d", _node );
+            pos += snprintf( messageChar + pos, MAX_MESSAGE_LEN - pos, D_STR , _node );
 
         }
 
@@ -1038,17 +1070,17 @@ void print_binary(int v, int num_places)
 
         if (v & (0x0001 << num_places - 1))
         {
-            Serial.print("1");
+            Serial.print(F("1"));
         }
         else
         {
-            Serial.print("0");
+            Serial.print(F("0"));
         }
 
         --num_places;
         if (((num_places % 4) == 0) && (num_places != 0))
         {
-            Serial.print("-");
+            Serial.print(F("-"));
         }
     }
 }
@@ -1084,7 +1116,7 @@ void debug_cbuf(char cbuf[], int idx, bool clear)
     for (int x = 0; x < idx; x++)
     {
         print_hex( cbuf[x], 8);
-        Serial.print(" ");
+        Serial.print(F(" "));
     }
     Serial.println();
 
