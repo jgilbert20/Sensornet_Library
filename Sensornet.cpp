@@ -432,16 +432,19 @@ void Sensornet::transmitStatistics()
     // library as it uses millis() and its denominator is the total elapsed
     // time (as opd.
 
-    if ( totalMessagesSent >  0 )
+//    if ( totalMessagesSent >  0 )
         queueReading( T_AVTX_SIBOOT, timeSpentTX / totalMessagesSent );
-    if ( statcycle_totalMessagesSent > 0 )
+ //   if ( statcycle_totalMessagesSent > 0 )
         queueReading( T_AVTX_SILAST, statcycle_timeSpentTX / statcycle_totalMessagesSent );
 
     // T_LOOP_* tracks the amount of time the calling code declared it was in
     // a "loop". The semantics of this could vary based on the calling code.
 
-    queueReading( T_LOOP_SIBOOT, timeSpentLoop );
-    queueReading( T_LOOP_SILAST, statcycle_timeSpentLoop );
+    if( totalLoops != 0 )
+        queueReading( T_LOOP_SIBOOT, 1.0 * timeSpentLoop / totalLoops );
+
+    if( statcycle_totalLoops != 0 )
+        queueReading( T_LOOP_SILAST, 1.0 * statcycle_timeSpentLoop / statcycle_totalLoops);
 
     unsigned long now = millis();
     unsigned long timeSinceStatClear = now - lastStatClear;
@@ -457,8 +460,8 @@ void Sensornet::transmitStatistics()
     debugVerbose( F("D: Duty cycle now=")); debugVerboseln( now );
     debugVerbose( F("D: Duty cycle timeSleep=")); debugVerboseln( timeSpentSleeping );
 
-    queueReading( T_DUTYCYCLE_SIBOOT, (1.0 * now - timeSpentSleeping) / (now * 1.0) );
-    queueReading( T_DUTYCYCLE_SILAST, (timeSinceStatClear * 1.0 - timeSpentSleeping * 1.0) / timeSinceStatClear );
+    queueReading( T_DUTYCYCLE_SIBOOT, 100.0 * (1.0 * now - timeSpentSleeping) / (now * 1.0) );
+    queueReading( T_DUTYCYCLE_SILAST, 100.0 * (timeSinceStatClear * 1.0 - statcycle_timeSpentSleeping * 1.0) / timeSinceStatClear );
 
     flushQueue();
 }
@@ -574,7 +577,7 @@ int Sensornet::writePacketToSerial( nodeID origin, char *buffer, int len, int rs
 
     if ( msgType == SENSORNET_COMPACTED_MAGIC )
     {
-        debug_cbuf( buffer, len, false );
+        // debug_cbuf( buffer, len, false );
         writeCompressedPacketToSerial( origin, buffer, len, rssi );
         return 0;
     }
